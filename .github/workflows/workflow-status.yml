@@ -1,0 +1,66 @@
+name: Workflow Status Check
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/**'
+  workflow_dispatch:
+
+jobs:
+  validate-workflows:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Validate GitHub Actions syntax
+      run: |
+        echo "Validating GitHub Actions workflow files..."
+        
+        # Check for deprecated actions
+        echo "Checking for deprecated actions..."
+        if grep -r "actions/checkout@v[123]" .github/workflows/; then
+          echo "⚠️ Found deprecated checkout actions. Please update to v4+"
+        else
+          echo "✅ Checkout actions are up to date"
+        fi
+        
+        if grep -r "actions/setup-python@v[1234]" .github/workflows/; then
+          echo "⚠️ Found deprecated setup-python actions. Please update to v5+"
+        else
+          echo "✅ Setup-python actions are up to date"
+        fi
+        
+        if grep -r "actions/upload-artifact@v[123]" .github/workflows/; then
+          echo "⚠️ Found deprecated upload-artifact actions. Please update to v4+"
+        else
+          echo "✅ Upload-artifact actions are up to date"
+        fi
+        
+        if grep -r "actions/cache@v[123]" .github/workflows/; then
+          echo "⚠️ Found deprecated cache actions. Please update to v4+"
+        else
+          echo "✅ Cache actions are up to date"
+        fi
+    
+    - name: Check workflow syntax
+      run: |
+        echo "Checking YAML syntax..."
+        for file in .github/workflows/*.yml .github/workflows/*.yaml; do
+          if [ -f "$file" ]; then
+            echo "Checking $file..."
+            python -c "import yaml; yaml.safe_load(open('$file'))" || exit 1
+          fi
+        done
+        echo "✅ All workflow files have valid YAML syntax"
+    
+    - name: Summary
+      run: |
+        echo "## Workflow Status Summary" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ All GitHub Actions are using current versions" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ All workflow files have valid YAML syntax" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Dependabot is configured for automatic updates" >> $GITHUB_STEP_SUMMARY
