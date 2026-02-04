@@ -5,7 +5,7 @@ This guide covers various deployment options for the Shambit Travels API Backend
 ## Prerequisites
 
 - Docker and Docker Compose
-- Python 3.9+
+- Python 3.10+
 - PostgreSQL 13+
 - Redis 6+
 

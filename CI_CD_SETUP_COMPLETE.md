@@ -181,7 +181,7 @@ docker-compose -f docker-compose.prod.yml up -d
 - **Repository URL**: https://github.com/amitkumarupadhyay1/shambit_travels_api_backend.git
 - **Main Branch**: `main`
 - **License**: MIT License
-- **Python Version**: 3.9+
+- **Python Version**: 3.10+
 - **Django Version**: 5.2
 - **Database**: PostgreSQL (SQLite for development)
 

@@ -48,7 +48,7 @@ A comprehensive Django REST API backend for a travel booking platform with advan
 
 ### Prerequisites
 
-- Python 3.8+
+- Python 3.10+
 - PostgreSQL (optional, SQLite for development)
 - Redis (optional, for caching)
 

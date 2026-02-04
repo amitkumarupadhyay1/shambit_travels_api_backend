@@ -97,7 +97,7 @@ repos:
     rev: 23.3.0
     hooks:
       - id: black
-        language_version: python3.9
+        language_version: python3.10
 
   - repo: https://github.com/pycqa/isort
     rev: 5.12.0
