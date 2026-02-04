@@ -4,21 +4,16 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
+from rest_framework.permissions import (IsAuthenticated,
+                                        IsAuthenticatedOrReadOnly)
 from rest_framework.response import Response
 
 from .models import SEOData
-from .serializers import (
-    BulkSEOSerializer,
-    ContentTypeSEOSerializer,
-    SEOAnalysisSerializer,
-    SEODataCreateSerializer,
-    SEODataListSerializer,
-    SEODataSerializer,
-    SEODataUpdateSerializer,
-    SEOMetaTagsSerializer,
-    StructuredDataSerializer,
-)
+from .serializers import (BulkSEOSerializer, ContentTypeSEOSerializer,
+                          SEOAnalysisSerializer, SEODataCreateSerializer,
+                          SEODataListSerializer, SEODataSerializer,
+                          SEODataUpdateSerializer, SEOMetaTagsSerializer,
+                          StructuredDataSerializer)
 from .services.seo_service import SEOService
 from .utils import SEOAnalyzer, StructuredDataGenerator
 

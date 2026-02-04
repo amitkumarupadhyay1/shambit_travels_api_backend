@@ -4,11 +4,9 @@ from django.contrib import admin
 from django.http import JsonResponse
 from django.urls import include, path
 
-from .swagger_views import (
-    SecureSpectacularAPIView,
-    SecureSpectacularRedocView,
-    SecureSpectacularSwaggerView,
-)
+from .swagger_views import (SecureSpectacularAPIView,
+                            SecureSpectacularRedocView,
+                            SecureSpectacularSwaggerView)
 
 
 def health_check(request):

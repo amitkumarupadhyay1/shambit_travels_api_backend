@@ -72,7 +72,8 @@ class PricingRuleViewSet(viewsets.ModelViewSet):
             transport_option_id = data.get("transport_option_id")
 
             # Validate inputs
-            from packages.models import Experience, HotelTier, Package, TransportOption
+            from packages.models import (Experience, HotelTier, Package,
+                                         TransportOption)
 
             package = Package.objects.get(id=package_id)
             experiences = Experience.objects.filter(id__in=experience_ids)
