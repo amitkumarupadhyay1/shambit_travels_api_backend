@@ -28,6 +28,9 @@ COPY . /app/
 # Create logs and static directories
 RUN mkdir -p /app/logs /app/static
 
+# Make startup script executable
+RUN chmod +x /app/startup.sh
+
 # Create non-root user
 RUN adduser --disabled-password --gecos '' appuser \
     && chown -R appuser:appuser /app
@@ -39,9 +42,9 @@ RUN python manage.py collectstatic --noinput
 # Expose port (Railway will set PORT env var)
 EXPOSE $PORT
 
-# Health check
+# Health check - use fixed port since Railway maps to 8000 internally
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:$PORT/health/ || exit 1
+    CMD curl -f http://localhost:8000/health/ || exit 1
 
-# Run the application
-CMD ["sh", "-c", "python manage.py migrate && gunicorn --bind 0.0.0.0:$PORT --workers 3 backend.wsgi:application"]
+# Run the application using startup script
+CMD ["./startup.sh"]

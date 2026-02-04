@@ -13,9 +13,28 @@ from .swagger_views import (
 
 def health_check(request):
     """Health check endpoint for monitoring and load balancers"""
-    return JsonResponse(
-        {"status": "healthy", "service": "shambit-travels-api", "version": "1.0.0"}
-    )
+    try:
+        # Try database connection but don't fail if it's not available
+        db_status = "unknown"
+        try:
+            from django.db import connection
+
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1")
+            db_status = "connected"
+        except Exception:
+            db_status = "disconnected"
+
+        return JsonResponse(
+            {
+                "status": "healthy",
+                "service": "shambit-travels-api",
+                "version": "1.0.0",
+                "database": db_status,
+            }
+        )
+    except Exception as e:
+        return JsonResponse({"status": "unhealthy", "error": str(e)}, status=500)
 
 
 # Customize admin site
@@ -25,6 +44,9 @@ admin.site.index_title = "Welcome to Travel Platform Administration"
 
 urlpatterns = [
     path("health/", health_check, name="health-check"),
+    path(
+        "api/health/", health_check, name="api-health-check"
+    ),  # Alternative path for Railway
     path("admin/", admin.site.urls),
     path("api/auth/", include("users.urls")),
     path("api/cities/", include("cities.urls")),

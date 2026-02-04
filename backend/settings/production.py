@@ -54,7 +54,8 @@ if "RAILWAY_PUBLIC_DOMAIN" in os.environ:
 CORS_ALLOW_ALL_ORIGINS = os.environ.get("CORS_ALLOW_ALL_ORIGINS", "False") == "True"
 
 # Security settings for production - Railway
-SECURE_SSL_REDIRECT = os.environ.get("SECURE_SSL_REDIRECT", "True") == "True"
+# Disable SSL redirect for health checks
+SECURE_SSL_REDIRECT = False  # Railway handles SSL termination
 SECURE_HSTS_SECONDS = 31536000
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
