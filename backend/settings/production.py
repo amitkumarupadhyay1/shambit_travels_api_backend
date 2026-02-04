@@ -5,10 +5,24 @@ DEBUG = os.environ.get("DEBUG", "False") == "True"
 
 # Railway specific settings
 ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "*").split(",")
+
+# Add Railway health check and internal domains
+ALLOWED_HOSTS.extend(
+    [
+        "healthcheck.railway.app",
+        "*.railway.app",
+        "*.up.railway.app",
+    ]
+)
+
 if "RAILWAY_STATIC_URL" in os.environ:
     ALLOWED_HOSTS.append(
         os.environ["RAILWAY_STATIC_URL"].replace("https://", "").replace("http://", "")
     )
+
+# Add Railway public domain if available
+if "RAILWAY_PUBLIC_DOMAIN" in os.environ:
+    ALLOWED_HOSTS.append(os.environ["RAILWAY_PUBLIC_DOMAIN"])
 
 # Use PORT from Railway
 PORT = os.environ.get("PORT", "8000")
