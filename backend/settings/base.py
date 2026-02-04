@@ -79,30 +79,8 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "backend.wsgi.application"
 
-# Database
-# https://docs.djangoproject.com/en/4.2/ref/settings/#databases
-
-# Default to PostgreSQL in production; SQLite only for local dev
-if os.environ.get("DATABASE_URL"):
-    DATABASES = {
-        "default": dj_database_url.config(
-            default=os.environ.get("DATABASE_URL"),
-            conn_max_age=600,
-            conn_health_checks=True,
-        )
-    }
-else:
-    # Development only
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": os.environ.get("DB_NAME", "travel_platform"),
-            "USER": os.environ.get("DB_USER", "postgres"),
-            "PASSWORD": os.environ.get("DB_PASSWORD", ""),
-            "HOST": os.environ.get("DB_HOST", "localhost"),
-            "PORT": os.environ.get("DB_PORT", "5432"),
-        }
-    }
+# Database configuration moved to environment-specific settings files
+# See settings/production.py, settings/development.py, etc.
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
