@@ -5,43 +5,43 @@ DEBUG = True
 
 # Database settings for development
 # Use DATABASE_URL if provided, otherwise fall back to individual settings
-if os.environ.get('DATABASE_URL'):
+if os.environ.get("DATABASE_URL"):
     DATABASES = {
-        'default': dj_database_url.config(
-            default=os.environ.get('DATABASE_URL'),
+        "default": dj_database_url.config(
+            default=os.environ.get("DATABASE_URL"),
             conn_max_age=600,
             conn_health_checks=True,
         )
     }
 else:
     DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.environ.get('DB_NAME', 'travel_platform_dev'),
-            'USER': os.environ.get('DB_USER', 'travel_user_dev'),
-            'PASSWORD': os.environ.get('DB_PASSWORD', 'travel_password_dev'),
-            'HOST': os.environ.get('DB_HOST', 'localhost'),
-            'PORT': os.environ.get('DB_PORT', '5432'),
-            'CONN_MAX_AGE': 600,
-            'OPTIONS': {
-                'sslmode': 'require',
-                'connect_timeout': 10,
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.environ.get("DB_NAME", "travel_platform_dev"),
+            "USER": os.environ.get("DB_USER", "travel_user_dev"),
+            "PASSWORD": os.environ.get("DB_PASSWORD", "travel_password_dev"),
+            "HOST": os.environ.get("DB_HOST", "localhost"),
+            "PORT": os.environ.get("DB_PORT", "5432"),
+            "CONN_MAX_AGE": 600,
+            "OPTIONS": {
+                "sslmode": "require",
+                "connect_timeout": 10,
             },
         }
     }
 
 # Email settings for development
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 # CORS settings for development
 CORS_ALLOWED_ORIGINS = [
-    'http://localhost:3000',
-    'http://localhost:5173',
-    'http://localhost:7173',
-    'http://192.168.29.45:3000',
-    'http://192.168.29.45:5173',
-    'http://192.168.29.45:7173',
-    'http://192.168.29.45:8000',
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://localhost:7173",
+    "http://192.168.29.45:3000",
+    "http://192.168.29.45:5173",
+    "http://192.168.29.45:7173",
+    "http://192.168.29.45:8000",
 ]
 
 # Allow all origins from local network for development
@@ -80,47 +80,47 @@ RATELIMIT_ENABLE = False
 
 # Django Admin Interface settings
 ADMIN_INTERFACE = {
-    'SKIN': 'black',
-    'SHOW_THEMES': True,
-    'DEFAULT_THEME': 'black',
+    "SKIN": "black",
+    "SHOW_THEMES": True,
+    "DEFAULT_THEME": "black",
 }
 
 # Logging settings for development
 LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'verbose': {
-            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
-            'style': '{',
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "{levelname} {asctime} {module} {process:d} {thread:d} {message}",
+            "style": "{",
         },
-        'simple': {
-            'format': '{levelname} {message}',
-            'style': '{',
-        },
-    },
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-            'formatter': 'simple',
-        },
-        'file': {
-            'class': 'logging.handlers.RotatingFileHandler',
-            'filename': BASE_DIR / 'logs' / 'django_dev.log',
-            'maxBytes': 1024 * 1024 * 5,  # 5MB
-            'backupCount': 5,
-            'formatter': 'verbose',
+        "simple": {
+            "format": "{levelname} {message}",
+            "style": "{",
         },
     },
-    'loggers': {
-        'django': {
-            'handlers': ['console', 'file'],
-            'level': 'DEBUG',
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "simple",
         },
-        'django.db.backends': {
-            'handlers': ['console'],
-            'level': 'DEBUG',
-            'propagate': False,
+        "file": {
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": BASE_DIR / "logs" / "django_dev.log",
+            "maxBytes": 1024 * 1024 * 5,  # 5MB
+            "backupCount": 5,
+            "formatter": "verbose",
+        },
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console", "file"],
+            "level": "DEBUG",
+        },
+        "django.db.backends": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propagate": False,
         },
     },
 }
@@ -131,4 +131,4 @@ SESSION_COOKIE_SECURE = False
 CSRF_COOKIE_SECURE = False
 
 # Django Admin settings
-ADMIN_URL = 'admin/'
+ADMIN_URL = "admin/"

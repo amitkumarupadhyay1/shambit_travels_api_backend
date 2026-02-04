@@ -1,18 +1,19 @@
-from django.urls import path, include
+from django.urls import include, path
 from rest_framework.routers import DefaultRouter
+
 from . import views
 
 # Create router for viewsets
 router = DefaultRouter()
-router.register(r'', views.MediaViewSet, basename='media')
-router.register(r'tools', views.MediaToolsViewSet, basename='mediatools')
+router.register(r"", views.MediaViewSet, basename="media")
+router.register(r"tools", views.MediaToolsViewSet, basename="mediatools")
 
 urlpatterns = [
-    path('', include(router.urls)),
+    path("", include(router.urls)),
 ]
 
 # Available endpoints:
-# 
+#
 # Media Management:
 # GET /api/media/ - List media files (with filtering)
 # POST /api/media/ - Upload media file

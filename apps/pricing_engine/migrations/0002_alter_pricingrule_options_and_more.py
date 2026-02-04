@@ -6,64 +6,79 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('packages', '0002_alter_experience_options_alter_hoteltier_options_and_more'),
-        ('pricing_engine', '0001_initial'),
+        ("packages", "0002_alter_experience_options_alter_hoteltier_options_and_more"),
+        ("pricing_engine", "0001_initial"),
     ]
 
     operations = [
         migrations.AlterModelOptions(
-            name='pricingrule',
-            options={'ordering': ['-active_from']},
+            name="pricingrule",
+            options={"ordering": ["-active_from"]},
         ),
         migrations.AlterField(
-            model_name='pricingrule',
-            name='active_from',
+            model_name="pricingrule",
+            name="active_from",
             field=models.DateTimeField(db_index=True),
         ),
         migrations.AlterField(
-            model_name='pricingrule',
-            name='active_to',
+            model_name="pricingrule",
+            name="active_to",
             field=models.DateTimeField(blank=True, db_index=True, null=True),
         ),
         migrations.AlterField(
-            model_name='pricingrule',
-            name='is_active',
+            model_name="pricingrule",
+            name="is_active",
             field=models.BooleanField(db_index=True, default=True),
         ),
         migrations.AlterField(
-            model_name='pricingrule',
-            name='is_percentage',
+            model_name="pricingrule",
+            name="is_percentage",
             field=models.BooleanField(db_index=True, default=True),
         ),
         migrations.AlterField(
-            model_name='pricingrule',
-            name='name',
+            model_name="pricingrule",
+            name="name",
             field=models.CharField(db_index=True, max_length=100),
         ),
         migrations.AlterField(
-            model_name='pricingrule',
-            name='rule_type',
-            field=models.CharField(choices=[('MARKUP', 'Markup'), ('DISCOUNT', 'Discount')], db_index=True, max_length=50),
+            model_name="pricingrule",
+            name="rule_type",
+            field=models.CharField(
+                choices=[("MARKUP", "Markup"), ("DISCOUNT", "Discount")],
+                db_index=True,
+                max_length=50,
+            ),
         ),
         migrations.AlterField(
-            model_name='pricingrule',
-            name='value',
+            model_name="pricingrule",
+            name="value",
             field=models.DecimalField(db_index=True, decimal_places=2, max_digits=10),
         ),
         migrations.AddIndex(
-            model_name='pricingrule',
-            index=models.Index(fields=['is_active', 'active_from'], name='pricing_eng_is_acti_35d946_idx'),
+            model_name="pricingrule",
+            index=models.Index(
+                fields=["is_active", "active_from"],
+                name="pricing_eng_is_acti_35d946_idx",
+            ),
         ),
         migrations.AddIndex(
-            model_name='pricingrule',
-            index=models.Index(fields=['target_package', 'is_active'], name='pricing_eng_target__234f5c_idx'),
+            model_name="pricingrule",
+            index=models.Index(
+                fields=["target_package", "is_active"],
+                name="pricing_eng_target__234f5c_idx",
+            ),
         ),
         migrations.AddIndex(
-            model_name='pricingrule',
-            index=models.Index(fields=['rule_type', 'is_active'], name='pricing_eng_rule_ty_831c53_idx'),
+            model_name="pricingrule",
+            index=models.Index(
+                fields=["rule_type", "is_active"], name="pricing_eng_rule_ty_831c53_idx"
+            ),
         ),
         migrations.AddIndex(
-            model_name='pricingrule',
-            index=models.Index(fields=['active_from', 'active_to'], name='pricing_eng_active__1ff04c_idx'),
+            model_name="pricingrule",
+            index=models.Index(
+                fields=["active_from", "active_to"],
+                name="pricing_eng_active__1ff04c_idx",
+            ),
         ),
     ]

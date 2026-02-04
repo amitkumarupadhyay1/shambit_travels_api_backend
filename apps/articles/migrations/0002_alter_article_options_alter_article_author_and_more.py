@@ -6,49 +6,62 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('articles', '0001_initial'),
-        ('cities', '0002_alter_city_created_at_alter_city_name_and_more'),
+        ("articles", "0001_initial"),
+        ("cities", "0002_alter_city_created_at_alter_city_name_and_more"),
     ]
 
     operations = [
         migrations.AlterModelOptions(
-            name='article',
-            options={'ordering': ['-created_at']},
+            name="article",
+            options={"ordering": ["-created_at"]},
         ),
         migrations.AlterField(
-            model_name='article',
-            name='author',
+            model_name="article",
+            name="author",
             field=models.CharField(blank=True, db_index=True, max_length=100),
         ),
         migrations.AlterField(
-            model_name='article',
-            name='created_at',
+            model_name="article",
+            name="created_at",
             field=models.DateTimeField(auto_now_add=True, db_index=True),
         ),
         migrations.AlterField(
-            model_name='article',
-            name='status',
-            field=models.CharField(choices=[('DRAFT', 'Draft'), ('PUBLISHED', 'Published')], db_index=True, default='DRAFT', max_length=20),
+            model_name="article",
+            name="status",
+            field=models.CharField(
+                choices=[("DRAFT", "Draft"), ("PUBLISHED", "Published")],
+                db_index=True,
+                default="DRAFT",
+                max_length=20,
+            ),
         ),
         migrations.AlterField(
-            model_name='article',
-            name='title',
+            model_name="article",
+            name="title",
             field=models.CharField(db_index=True, max_length=255),
         ),
         migrations.AddIndex(
-            model_name='article',
-            index=models.Index(fields=['status', 'created_at'], name='articles_ar_status_cbb22b_idx'),
+            model_name="article",
+            index=models.Index(
+                fields=["status", "created_at"], name="articles_ar_status_cbb22b_idx"
+            ),
         ),
         migrations.AddIndex(
-            model_name='article',
-            index=models.Index(fields=['city', 'status'], name='articles_ar_city_id_b15783_idx'),
+            model_name="article",
+            index=models.Index(
+                fields=["city", "status"], name="articles_ar_city_id_b15783_idx"
+            ),
         ),
         migrations.AddIndex(
-            model_name='article',
-            index=models.Index(fields=['author', 'status'], name='articles_ar_author_b29a30_idx'),
+            model_name="article",
+            index=models.Index(
+                fields=["author", "status"], name="articles_ar_author_b29a30_idx"
+            ),
         ),
         migrations.AddIndex(
-            model_name='article',
-            index=models.Index(fields=['title', 'status'], name='articles_ar_title_c14b5d_idx'),
+            model_name="article",
+            index=models.Index(
+                fields=["title", "status"], name="articles_ar_title_c14b5d_idx"
+            ),
         ),
     ]

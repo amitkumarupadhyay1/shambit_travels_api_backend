@@ -7,40 +7,46 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('notifications', '0001_initial'),
+        ("notifications", "0001_initial"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.AlterModelOptions(
-            name='notification',
-            options={'ordering': ['-created_at']},
+            name="notification",
+            options={"ordering": ["-created_at"]},
         ),
         migrations.AlterField(
-            model_name='notification',
-            name='created_at',
+            model_name="notification",
+            name="created_at",
             field=models.DateTimeField(auto_now_add=True, db_index=True),
         ),
         migrations.AlterField(
-            model_name='notification',
-            name='is_read',
+            model_name="notification",
+            name="is_read",
             field=models.BooleanField(db_index=True, default=False),
         ),
         migrations.AlterField(
-            model_name='notification',
-            name='title',
+            model_name="notification",
+            name="title",
             field=models.CharField(db_index=True, max_length=255),
         ),
         migrations.AddIndex(
-            model_name='notification',
-            index=models.Index(fields=['user', 'is_read'], name='notificatio_user_id_427e4b_idx'),
+            model_name="notification",
+            index=models.Index(
+                fields=["user", "is_read"], name="notificatio_user_id_427e4b_idx"
+            ),
         ),
         migrations.AddIndex(
-            model_name='notification',
-            index=models.Index(fields=['user', 'created_at'], name='notificatio_user_id_c62b26_idx'),
+            model_name="notification",
+            index=models.Index(
+                fields=["user", "created_at"], name="notificatio_user_id_c62b26_idx"
+            ),
         ),
         migrations.AddIndex(
-            model_name='notification',
-            index=models.Index(fields=['is_read', 'created_at'], name='notificatio_is_read_3a06ff_idx'),
+            model_name="notification",
+            index=models.Index(
+                fields=["is_read", "created_at"], name="notificatio_is_read_3a06ff_idx"
+            ),
         ),
     ]

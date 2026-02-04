@@ -1,6 +1,8 @@
 #!/usr/bin/env python
-import requests
 import sys
+
+import requests
+
 
 def check_server_status():
     try:
@@ -16,13 +18,16 @@ def check_server_status():
             return False
     except requests.exceptions.ConnectionError:
         print("❌ Cannot connect to Django server")
-        print("💡 Make sure the server is running with: python manage.py runserver 8000")
+        print(
+            "💡 Make sure the server is running with: python manage.py runserver 8000"
+        )
         return False
     except Exception as e:
         print(f"❌ Error checking server: {e}")
         return False
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     if check_server_status():
         sys.exit(0)
     else:

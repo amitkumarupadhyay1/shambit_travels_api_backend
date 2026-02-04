@@ -7,49 +7,69 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('bookings', '0002_initial'),
-        ('packages', '0002_alter_experience_options_alter_hoteltier_options_and_more'),
+        ("bookings", "0002_initial"),
+        ("packages", "0002_alter_experience_options_alter_hoteltier_options_and_more"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.AlterModelOptions(
-            name='booking',
-            options={'ordering': ['-created_at']},
+            name="booking",
+            options={"ordering": ["-created_at"]},
         ),
         migrations.AlterField(
-            model_name='booking',
-            name='created_at',
+            model_name="booking",
+            name="created_at",
             field=models.DateTimeField(auto_now_add=True, db_index=True),
         ),
         migrations.AlterField(
-            model_name='booking',
-            name='status',
-            field=models.CharField(choices=[('DRAFT', 'Draft'), ('PENDING_PAYMENT', 'Pending Payment'), ('CONFIRMED', 'Confirmed'), ('CANCELLED', 'Cancelled')], db_index=True, default='DRAFT', max_length=20),
+            model_name="booking",
+            name="status",
+            field=models.CharField(
+                choices=[
+                    ("DRAFT", "Draft"),
+                    ("PENDING_PAYMENT", "Pending Payment"),
+                    ("CONFIRMED", "Confirmed"),
+                    ("CANCELLED", "Cancelled"),
+                ],
+                db_index=True,
+                default="DRAFT",
+                max_length=20,
+            ),
         ),
         migrations.AlterField(
-            model_name='booking',
-            name='total_price',
+            model_name="booking",
+            name="total_price",
             field=models.DecimalField(db_index=True, decimal_places=2, max_digits=12),
         ),
         migrations.AddIndex(
-            model_name='booking',
-            index=models.Index(fields=['user', 'status'], name='bookings_bo_user_id_69a5d5_idx'),
+            model_name="booking",
+            index=models.Index(
+                fields=["user", "status"], name="bookings_bo_user_id_69a5d5_idx"
+            ),
         ),
         migrations.AddIndex(
-            model_name='booking',
-            index=models.Index(fields=['status', 'created_at'], name='bookings_bo_status_72dd85_idx'),
+            model_name="booking",
+            index=models.Index(
+                fields=["status", "created_at"], name="bookings_bo_status_72dd85_idx"
+            ),
         ),
         migrations.AddIndex(
-            model_name='booking',
-            index=models.Index(fields=['package', 'status'], name='bookings_bo_package_0db9de_idx'),
+            model_name="booking",
+            index=models.Index(
+                fields=["package", "status"], name="bookings_bo_package_0db9de_idx"
+            ),
         ),
         migrations.AddIndex(
-            model_name='booking',
-            index=models.Index(fields=['user', 'created_at'], name='bookings_bo_user_id_5943d6_idx'),
+            model_name="booking",
+            index=models.Index(
+                fields=["user", "created_at"], name="bookings_bo_user_id_5943d6_idx"
+            ),
         ),
         migrations.AddIndex(
-            model_name='booking',
-            index=models.Index(fields=['total_price', 'status'], name='bookings_bo_total_p_3c93cb_idx'),
+            model_name="booking",
+            index=models.Index(
+                fields=["total_price", "status"], name="bookings_bo_total_p_3c93cb_idx"
+            ),
         ),
     ]

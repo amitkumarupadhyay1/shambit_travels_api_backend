@@ -31,7 +31,7 @@ django-model-utils>=4.5.0
 django-taggit>=5.0.0
 django-taggit-serializer>=0.1.7
 django-templated-mail>=0.1.0
-djoser>=2.9.0
+djoser==2.3.0
 drf-yasg>=1.21.4
 drf-spectacular>=0.27.4
 drf-spectacular-sidecar>=0.21.0

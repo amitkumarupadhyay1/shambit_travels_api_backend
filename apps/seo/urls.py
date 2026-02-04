@@ -1,18 +1,19 @@
-from django.urls import path, include
+from django.urls import include, path
 from rest_framework.routers import DefaultRouter
+
 from . import views
 
 # Create router for viewsets
 router = DefaultRouter()
-router.register(r'data', views.SEODataViewSet, basename='seodata')
-router.register(r'tools', views.SEOToolsViewSet, basename='seotools')
+router.register(r"data", views.SEODataViewSet, basename="seodata")
+router.register(r"tools", views.SEOToolsViewSet, basename="seotools")
 
 urlpatterns = [
-    path('', include(router.urls)),
+    path("", include(router.urls)),
 ]
 
 # Available endpoints:
-# 
+#
 # SEO Data Management:
 # GET /api/seo/data/ - List SEO data (with filtering)
 # POST /api/seo/data/ - Create SEO data

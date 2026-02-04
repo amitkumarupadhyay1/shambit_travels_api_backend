@@ -6,39 +6,48 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('cities', '0001_initial'),
+        ("cities", "0001_initial"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='city',
-            name='created_at',
+            model_name="city",
+            name="created_at",
             field=models.DateTimeField(auto_now_add=True, db_index=True),
         ),
         migrations.AlterField(
-            model_name='city',
-            name='name',
+            model_name="city",
+            name="name",
             field=models.CharField(db_index=True, max_length=100),
         ),
         migrations.AlterField(
-            model_name='city',
-            name='status',
-            field=models.CharField(choices=[('DRAFT', 'Draft'), ('PUBLISHED', 'Published')], db_index=True, default='DRAFT', max_length=20),
+            model_name="city",
+            name="status",
+            field=models.CharField(
+                choices=[("DRAFT", "Draft"), ("PUBLISHED", "Published")],
+                db_index=True,
+                default="DRAFT",
+                max_length=20,
+            ),
         ),
         migrations.AddIndex(
-            model_name='city',
-            index=models.Index(fields=['status', 'created_at'], name='cities_city_status_b8d5d0_idx'),
+            model_name="city",
+            index=models.Index(
+                fields=["status", "created_at"], name="cities_city_status_b8d5d0_idx"
+            ),
         ),
         migrations.AddIndex(
-            model_name='city',
-            index=models.Index(fields=['name', 'status'], name='cities_city_name_3acbc4_idx'),
+            model_name="city",
+            index=models.Index(
+                fields=["name", "status"], name="cities_city_name_3acbc4_idx"
+            ),
         ),
         migrations.AddIndex(
-            model_name='highlight',
-            index=models.Index(fields=['city'], name='cities_high_city_id_3edcc8_idx'),
+            model_name="highlight",
+            index=models.Index(fields=["city"], name="cities_high_city_id_3edcc8_idx"),
         ),
         migrations.AddIndex(
-            model_name='traveltip',
-            index=models.Index(fields=['city'], name='cities_trav_city_id_25cb86_idx'),
+            model_name="traveltip",
+            index=models.Index(fields=["city"], name="cities_trav_city_id_25cb86_idx"),
         ),
     ]

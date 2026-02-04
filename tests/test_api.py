@@ -1,13 +1,15 @@
 #!/usr/bin/env python
-import requests
 import json
 
+import requests
+
 BASE_URL = "http://127.0.0.1:8000"
+
 
 def test_api_endpoints():
     print("Testing Travel Platform API Endpoints...")
     print("=" * 50)
-    
+
     # Test 1: City Context API
     print("\n1. Testing City Context API")
     try:
@@ -22,7 +24,7 @@ def test_api_endpoints():
             print(f"❌ Failed: {response.status_code}")
     except Exception as e:
         print(f"❌ Error: {e}")
-    
+
     # Test 2: Packages API
     print("\n2. Testing Packages API")
     try:
@@ -30,7 +32,7 @@ def test_api_endpoints():
         if response.status_code == 200:
             data = response.json()
             print(f"✅ Total Packages: {data['count']}")
-            for package in data['results']:
+            for package in data["results"]:
                 print(f"   - {package['name']} ({package['city_name']})")
                 print(f"     Experiences: {len(package['experiences'])}")
                 print(f"     Hotel Tiers: {len(package['hotel_tiers'])}")
@@ -39,7 +41,7 @@ def test_api_endpoints():
             print(f"❌ Failed: {response.status_code}")
     except Exception as e:
         print(f"❌ Error: {e}")
-    
+
     # Test 3: Individual Package
     print("\n3. Testing Individual Package API")
     try:
@@ -53,7 +55,7 @@ def test_api_endpoints():
             print(f"❌ Failed: {response.status_code}")
     except Exception as e:
         print(f"❌ Error: {e}")
-    
+
     # Test 4: Experiences API
     print("\n4. Testing Experiences API")
     try:
@@ -61,13 +63,13 @@ def test_api_endpoints():
         if response.status_code == 200:
             data = response.json()
             print(f"✅ Total Experiences: {data['count']}")
-            for exp in data['results'][:3]:  # Show first 3
+            for exp in data["results"][:3]:  # Show first 3
                 print(f"   - {exp['name']}: ₹{exp['base_price']}")
         else:
             print(f"❌ Failed: {response.status_code}")
     except Exception as e:
         print(f"❌ Error: {e}")
-    
+
     # Test 5: Hotel Tiers API
     print("\n5. Testing Hotel Tiers API")
     try:
@@ -75,13 +77,13 @@ def test_api_endpoints():
         if response.status_code == 200:
             data = response.json()
             print(f"✅ Total Hotel Tiers: {data['count']}")
-            for tier in data['results']:
+            for tier in data["results"]:
                 print(f"   - {tier['name']}: {tier['price_multiplier']}x multiplier")
         else:
             print(f"❌ Failed: {response.status_code}")
     except Exception as e:
         print(f"❌ Error: {e}")
-    
+
     # Test 6: Transport Options API
     print("\n6. Testing Transport Options API")
     try:
@@ -89,13 +91,13 @@ def test_api_endpoints():
         if response.status_code == 200:
             data = response.json()
             print(f"✅ Total Transport Options: {data['count']}")
-            for transport in data['results']:
+            for transport in data["results"]:
                 print(f"   - {transport['name']}: ₹{transport['base_price']}")
         else:
             print(f"❌ Failed: {response.status_code}")
     except Exception as e:
         print(f"❌ Error: {e}")
-    
+
     # Test 7: Admin Interface
     print("\n7. Testing Admin Interface")
     try:
@@ -106,9 +108,10 @@ def test_api_endpoints():
             print(f"❌ Failed: {response.status_code}")
     except Exception as e:
         print(f"❌ Error: {e}")
-    
+
     print("\n" + "=" * 50)
     print("API Testing Complete!")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     test_api_endpoints()
