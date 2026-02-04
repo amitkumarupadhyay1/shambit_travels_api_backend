@@ -1,0 +1,237 @@
+{
+  "/api/auth/nextauth-sync/": [
+    "post"
+  ],
+  "/api/cities/city-context/{slug}/": [
+    "get"
+  ],
+  "/api/articles/": [
+    "post",
+    "get"
+  ],
+  "/api/articles/{slug}/": [
+    "get",
+    "patch",
+    "delete",
+    "put"
+  ],
+  "/api/packages/packages/": [
+    "post",
+    "get"
+  ],
+  "/api/packages/packages/{slug}/": [
+    "get",
+    "patch",
+    "delete",
+    "put"
+  ],
+  "/api/packages/packages/{slug}/calculate_price/": [
+    "post"
+  ],
+  "/api/packages/packages/{slug}/price_range/": [
+    "get"
+  ],
+  "/api/packages/experiences/": [
+    "get"
+  ],
+  "/api/packages/experiences/{id}/": [
+    "get"
+  ],
+  "/api/packages/hotel-tiers/": [
+    "get"
+  ],
+  "/api/packages/hotel-tiers/{id}/": [
+    "get"
+  ],
+  "/api/packages/transport-options/": [
+    "get"
+  ],
+  "/api/packages/transport-options/{id}/": [
+    "get"
+  ],
+  "/api/bookings/": [
+    "post",
+    "get"
+  ],
+  "/api/bookings/{id}/": [
+    "get",
+    "patch",
+    "delete",
+    "put"
+  ],
+  "/api/bookings/{id}/cancel/": [
+    "post"
+  ],
+  "/api/bookings/{id}/initiate_payment/": [
+    "post"
+  ],
+  "/api/payments/webhook/razorpay/": [
+    "post"
+  ],
+  "/api/notifications/": [
+    "post",
+    "get"
+  ],
+  "/api/notifications/clear_old/": [
+    "delete"
+  ],
+  "/api/notifications/clear_read/": [
+    "delete"
+  ],
+  "/api/notifications/mark_all_read/": [
+    "post"
+  ],
+  "/api/notifications/mark_all_unread/": [
+    "post"
+  ],
+  "/api/notifications/recent/": [
+    "get"
+  ],
+  "/api/notifications/stats/": [
+    "get"
+  ],
+  "/api/notifications/unread/": [
+    "get"
+  ],
+  "/api/notifications/{id}/": [
+    "get",
+    "patch",
+    "delete",
+    "put"
+  ],
+  "/api/notifications/{id}/mark_read/": [
+    "post"
+  ],
+  "/api/notifications/{id}/mark_unread/": [
+    "post"
+  ],
+  "/api/seo/data/": [
+    "post",
+    "get"
+  ],
+  "/api/seo/data/bulk_create/": [
+    "post"
+  ],
+  "/api/seo/data/bulk_update/": [
+    "post"
+  ],
+  "/api/seo/data/by_content_type/": [
+    "get"
+  ],
+  "/api/seo/data/content_types/": [
+    "get"
+  ],
+  "/api/seo/data/for_object/": [
+    "get"
+  ],
+  "/api/seo/data/generate_from_content/": [
+    "post"
+  ],
+  "/api/seo/data/missing_seo/": [
+    "get"
+  ],
+  "/api/seo/data/stats/": [
+    "get"
+  ],
+  "/api/seo/data/{id}/": [
+    "get",
+    "patch",
+    "delete",
+    "put"
+  ],
+  "/api/seo/data/{id}/analyze/": [
+    "post"
+  ],
+  "/api/seo/data/{id}/meta_tags/": [
+    "get"
+  ],
+  "/api/seo/data/{id}/structured_data/": [
+    "get"
+  ],
+  "/api/seo/tools/generate_sitemap_data/": [
+    "post"
+  ],
+  "/api/seo/tools/seo_health_check/": [
+    "get"
+  ],
+  "/api/seo/tools/validate_structured_data/": [
+    "post"
+  ],
+  "/api/media/": [
+    "post",
+    "get"
+  ],
+  "/api/media/bulk_operations/": [
+    "post"
+  ],
+  "/api/media/bulk_upload/": [
+    "post"
+  ],
+  "/api/media/by_content_type/": [
+    "get"
+  ],
+  "/api/media/cleanup_orphaned/": [
+    "delete"
+  ],
+  "/api/media/content_types/": [
+    "get"
+  ],
+  "/api/media/for_object/": [
+    "get"
+  ],
+  "/api/media/gallery/": [
+    "get"
+  ],
+  "/api/media/orphaned/": [
+    "get"
+  ],
+  "/api/media/recent/": [
+    "get"
+  ],
+  "/api/media/search/": [
+    "post"
+  ],
+  "/api/media/stats/": [
+    "get"
+  ],
+  "/api/media/{id}/": [
+    "get",
+    "patch",
+    "delete",
+    "put"
+  ],
+  "/api/media/{id}/download/": [
+    "get"
+  ],
+  "/api/media/{id}/optimize/": [
+    "post"
+  ],
+  "/api/media/{id}/thumbnail/": [
+    "get"
+  ],
+  "/api/media/tools/cleanup_unused/": [
+    "post"
+  ],
+  "/api/media/tools/storage_info/": [
+    "get"
+  ],
+  "/api/media/tools/validate_file/": [
+    "post"
+  ],
+  "/api/pricing/rules/": [
+    "post",
+    "get"
+  ],
+  "/api/pricing/rules/active_rules/": [
+    "get"
+  ],
+  "/api/pricing/rules/test_pricing/": [
+    "post"
+  ],
+  "/api/pricing/rules/{id}/": [
+    "get",
+    "patch",
+    "delete",
+    "put"
+  ]
+}

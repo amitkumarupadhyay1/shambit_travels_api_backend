@@ -1,0 +1,139 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static %}
+
+{% block title %}SEO Dashboard{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">Home</a>
+    &rsaquo; <a href="{% url 'admin:seo_seodata_changelist' %}">SEO Data</a>
+    &rsaquo; Dashboard
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="module">
+    <h1>SEO Dashboard</h1>
+    
+    <!-- Overall Health -->
+    <div class="module">
+        <h2>SEO Health Overview</h2>
+        <div class="results">
+            <table>
+                <tr>
+                    <td><strong>Total SEO Entries:</strong></td>
+                    <td>{{ health_report.total_checked }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Health Score:</strong></td>
+                    <td>
+                        <span style="color: {% if health_report.health_percentage >= 80 %}green{% elif health_report.health_percentage >= 60 %}orange{% else %}red{% endif %};">
+                            {{ health_report.health_percentage|floatformat:1 }}%
+                        </span>
+                    </td>
+                </tr>
+                <tr>
+                    <td><strong>Good SEO:</strong></td>
+                    <td style="color: green;">{{ health_report.good_count }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Warnings:</strong></td>
+                    <td style="color: orange;">{{ health_report.warning_count }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Errors:</strong></td>
+                    <td style="color: red;">{{ health_report.error_count }}</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Completeness Stats -->
+    <div class="module">
+        <h2>SEO Completeness</h2>
+        <div class="results">
+            <table>
+                <tr>
+                    <td><strong>Complete Basic SEO:</strong></td>
+                    <td>{{ stats.completeness.basic_seo_percentage|floatformat:1 }}%</td>
+                </tr>
+                <tr>
+                    <td><strong>With Open Graph:</strong></td>
+                    <td>{{ stats.completeness.og_percentage|floatformat:1 }}%</td>
+                </tr>
+                <tr>
+                    <td><strong>With Structured Data:</strong></td>
+                    <td>{{ stats.completeness.structured_data_percentage|floatformat:1 }}%</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+    
+    <!-- By Content Type -->
+    <div class="module">
+        <h2>SEO Data by Content Type</h2>
+        <div class="results">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Content Type</th>
+                        <th>SEO Entries</th>
+                        <th>Missing SEO</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ct_data in stats.by_content_type %}
+                    <tr>
+                        <td>{{ ct_data.content_type__app_label }}.{{ ct_data.content_type__model }}</td>
+                        <td>{{ ct_data.count }}</td>
+                        <td>
+                            {% with content_type=ct_data.content_type__app_label|add:"."|add:ct_data.content_type__model %}
+                                {% if content_type in missing_data %}
+                                    <span style="color: {% if missing_data.content_type.missing_seo > 0 %}red{% else %}green{% endif %};">
+                                        {{ missing_data.content_type.missing_seo|default:0 }}
+                                    </span>
+                                {% else %}
+                                    <span style="color: gray;">N/A</span>
+                                {% endif %}
+                            {% endwith %}
+                        </td>
+                        <td>
+                            <a href="{% url 'admin:seo_seodata_changelist' %}?content_type={{ ct_data.content_type__app_label }}.{{ ct_data.content_type__model }}" class="button">View</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Top Issues -->
+    {% if health_report.top_issues %}
+    <div class="module">
+        <h2>Top SEO Issues</h2>
+        <div class="results">
+            {% for issue in health_report.top_issues|slice:":5" %}
+            <div style="margin-bottom: 15px; padding: 10px; background: #fff3cd; border-left: 4px solid #ffc107;">
+                <strong>{{ issue.object }}</strong>
+                <ul style="margin-top: 5px;">
+                    {% for recommendation in issue.issues|slice:":3" %}
+                    <li>{{ recommendation }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Quick Actions -->
+    <div class="module">
+        <h2>Quick Actions</h2>
+        <div class="submit-row">
+            <a href="{% url 'admin:seo_bulk_generate' %}" class="button">Bulk Generate SEO</a>
+            <a href="{% url 'admin:seo_seodata_changelist' %}" class="button">Manage SEO Data</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

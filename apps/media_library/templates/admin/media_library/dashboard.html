@@ -1,0 +1,194 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static %}
+
+{% block title %}Media Library Dashboard{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">Home</a>
+    &rsaquo; <a href="{% url 'admin:media_library_media_changelist' %}">Media</a>
+    &rsaquo; Dashboard
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="module">
+    <h1>Media Library Dashboard</h1>
+    
+    <!-- Overview Stats -->
+    <div class="module">
+        <h2>Overview</h2>
+        <div class="results">
+            <table>
+                <tr>
+                    <td><strong>Total Files:</strong></td>
+                    <td>{{ stats.total_files }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Total Size:</strong></td>
+                    <td>{{ stats.total_size|filesizeformat }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Recent Uploads (7 days):</strong></td>
+                    <td>{{ stats.recent_uploads }}</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+    
+    <!-- File Type Distribution -->
+    <div class="module">
+        <h2>File Types</h2>
+        <div class="results">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Count</th>
+                        <th>Percentage</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for type, count in stats.by_type.items %}
+                    <tr>
+                        <td>{{ type|capfirst }}</td>
+                        <td>{{ count }}</td>
+                        <td>
+                            {% if stats.total_files > 0 %}
+                                {{ count|floatformat:0 }}%
+                            {% else %}
+                                0%
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Content Type Usage -->
+    {% if stats.by_content_type %}
+    <div class="module">
+        <h2>Usage by Content Type</h2>
+        <div class="results">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Content Type</th>
+                        <th>Media Files</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ct_data in stats.by_content_type %}
+                    <tr>
+                        <td>{{ ct_data.content_type__app_label }}.{{ ct_data.content_type__model }}</td>
+                        <td>{{ ct_data.count }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Storage Information -->
+    {% if storage_info and not storage_info.error %}
+    <div class="module">
+        <h2>Storage Information</h2>
+        <div class="results">
+            <table>
+                <tr>
+                    <td><strong>Media Root:</strong></td>
+                    <td><code>{{ storage_info.media_root }}</code></td>
+                </tr>
+                <tr>
+                    <td><strong>Files in Storage:</strong></td>
+                    <td>{{ storage_info.total_files }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Storage Size:</strong></td>
+                    <td>{{ storage_info.total_size|filesizeformat }}</td>
+                </tr>
+                {% if storage_info.disk_total %}
+                <tr>
+                    <td><strong>Disk Usage:</strong></td>
+                    <td>
+                        {{ storage_info.disk_used|filesizeformat }} / {{ storage_info.disk_total|filesizeformat }}
+                        ({{ storage_info.disk_usage_percentage|floatformat:1 }}%)
+                    </td>
+                </tr>
+                <tr>
+                    <td><strong>Disk Free:</strong></td>
+                    <td>{{ storage_info.disk_free|filesizeformat }}</td>
+                </tr>
+                {% endif %}
+            </table>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Recent Uploads -->
+    {% if recent_media %}
+    <div class="module">
+        <h2>Recent Uploads</h2>
+        <div class="results">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Preview</th>
+                        <th>Title</th>
+                        <th>Type</th>
+                        <th>Size</th>
+                        <th>Uploaded</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for media in recent_media %}
+                    <tr>
+                        <td>
+                            {% if media.file %}
+                                {% if media.file.name|lower|slice:"-4:" in ".jpg.png.gif" or media.file.name|lower|slice:"-5:" in ".jpeg.webp" %}
+                                    <img src="{{ media.file.url }}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">
+                                {% else %}
+                                    <div style="width: 40px; height: 40px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; border-radius: 4px;">📄</div>
+                                {% endif %}
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'admin:media_library_media_change' media.id %}">
+                                {{ media.title|default:"Untitled" }}
+                            </a>
+                        </td>
+                        <td>
+                            {% if media.file.name|lower|slice:"-4:" in ".jpg.png.gif" or media.file.name|lower|slice:"-5:" in ".jpeg.webp" %}
+                                <span style="background: #28a745; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px;">Image</span>
+                            {% elif media.file.name|lower|slice:"-4:" in ".mp4.avi.mov.wmv.flv" %}
+                                <span style="background: #007bff; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px;">Video</span>
+                            {% elif media.file.name|lower|slice:"-4:" == ".pdf" %}
+                                <span style="background: #dc3545; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px;">Document</span>
+                            {% else %}
+                                <span style="background: #6c757d; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px;">Other</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ media.file.size|filesizeformat }}</td>
+                        <td>{{ media.created_at|timesince }} ago</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Quick Actions -->
+    <div class="module">
+        <h2>Quick Actions</h2>
+        <div class="submit-row">
+            <a href="{% url 'admin:media_cleanup' %}" class="button">Clean Up Media</a>
+            <a href="{% url 'admin:media_library_media_changelist' %}" class="button">Manage Media Files</a>
+            <a href="{% url 'admin:media_library_media_add' %}" class="button default">Upload New Media</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

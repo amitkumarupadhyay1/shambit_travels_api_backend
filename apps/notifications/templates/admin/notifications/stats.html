@@ -1,0 +1,57 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static %}
+
+{% block title %}Notification Statistics{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">Home</a>
+    &rsaquo; <a href="{% url 'admin:notifications_notification_changelist' %}">Notifications</a>
+    &rsaquo; Statistics
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="module">
+    <h1>Notification Statistics</h1>
+    
+    <div class="results">
+        <table id="result_list">
+            <thead>
+                <tr>
+                    <th scope="col">Metric</th>
+                    <th scope="col">Count</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr class="row1">
+                    <td>Total Notifications</td>
+                    <td><strong>{{ stats.total }}</strong></td>
+                </tr>
+                <tr class="row2">
+                    <td>Read Notifications</td>
+                    <td><span style="color: green;"><strong>{{ stats.read }}</strong></span></td>
+                </tr>
+                <tr class="row1">
+                    <td>Unread Notifications</td>
+                    <td><span style="color: red;"><strong>{{ stats.unread }}</strong></span></td>
+                </tr>
+                <tr class="row2">
+                    <td>Read Percentage</td>
+                    <td>
+                        {% if stats.total > 0 %}
+                            {{ stats.read|floatformat:0 }}%
+                        {% else %}
+                            0%
+                        {% endif %}
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="submit-row">
+        <a href="{% url 'admin:notifications_notification_changelist' %}" class="button">Back to Notifications</a>
+    </div>
+</div>
+{% endblock %}

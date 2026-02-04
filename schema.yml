@@ -1,0 +1,5004 @@
+openapi: 3.0.3
+info:
+  title: City Travel Platform API
+  version: 1.0.0
+  description: API documentation for City-Based Travel Platform with booking, payment,
+    and content management capabilities
+paths:
+  /api/auth/nextauth-sync/:
+    post:
+      operationId: oauth_sync
+      description: Synchronize OAuth user data from NextAuth.js frontend with Django
+        backend. Creates or updates user and returns JWT tokens.
+      summary: OAuth user synchronization
+      tags:
+      - Authentication
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OAuthSyncRequestRequest'
+            examples:
+              GoogleOAuthSync:
+                value:
+                  email: user@example.com
+                  first_name: John
+                  last_name: Doe
+                  provider: google
+                  uid: google_user_id_123
+                  token: oauth_access_token_here
+                summary: Google OAuth sync
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OAuthSyncRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OAuthSyncRequestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthSyncResponse'
+              examples:
+                SuccessfulSyncResponse:
+                  value:
+                    user_id: 1
+                    email: user@example.com
+                    first_name: John
+                    last_name: Doe
+                    access: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
+                    refresh: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
+                  summary: Successful sync response
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+                description: Unspecified response body
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+                description: Unspecified response body
+          description: ''
+        '500':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+                description: Unspecified response body
+          description: ''
+  /api/cities/city-context/{slug}/:
+    get:
+      operationId: get_city_context
+      description: Retrieve comprehensive city information including highlights, travel
+        tips, articles, and packages for a specific city.
+      summary: Get city context data
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+        description: City slug identifier
+        required: true
+        examples:
+          Mumbai:
+            value: mumbai
+          Delhi:
+            value: delhi
+          Goa:
+            value: goa
+      tags:
+      - Cities
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CityContext'
+              examples:
+                SuccessfulResponse:
+                  value:
+                    name: Mumbai
+                    slug: mumbai
+                    description: The financial capital of India...
+                    hero_image: /media/cities/mumbai-hero.jpg
+                    highlights:
+                    - title: Gateway of India
+                      description: Iconic monument and tourist attraction
+                      icon: landmark
+                    travel_tips:
+                    - title: Best time to visit
+                      content: October to February for pleasant weather
+                    articles:
+                    - title: Top 10 Places to Visit in Mumbai
+                      slug: top-10-places-mumbai
+                      author: Travel Expert
+                      created_at: '2024-01-15T10:30:00Z'
+                    packages:
+                    - name: Mumbai Heritage Tour
+                      slug: mumbai-heritage-tour
+                      description: Explore the rich history of Mumbai
+                    gallery: []
+                    meta_title: Mumbai Travel Guide - Best Places to Visit
+                    meta_description: Discover Mumbai with our comprehensive travel
+                      guide...
+                  summary: Successful response
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+                description: Unspecified response body
+          description: ''
+  /api/articles/:
+    post:
+      operationId: articles_create
+      tags:
+      - Articles
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArticleRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ArticleRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ArticleRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Article'
+          description: ''
+    get:
+      operationId: list_articles
+      description: Retrieve a paginated list of published travel articles. Filter
+        by city using the city query parameter.
+      summary: List all articles
+      parameters:
+      - in: query
+        name: city
+        schema:
+          type: string
+        description: Filter articles by city slug
+        examples:
+          MumbaiArticles:
+            value: mumbai
+            summary: Mumbai articles
+          DelhiArticles:
+            value: delhi
+            summary: Delhi articles
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - in: query
+        name: page
+        schema:
+          type: integer
+        description: Page number for pagination
+      - in: query
+        name: search
+        schema:
+          type: string
+        description: Search articles by title or content
+      tags:
+      - Articles
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedArticleListList'
+              examples:
+                ArticleListResponse:
+                  value:
+                    count: 123
+                    next: http://api.example.org/accounts/?page=4
+                    previous: http://api.example.org/accounts/?page=2
+                    results:
+                    - count: 25
+                      next: http://api.example.com/api/articles/?page=2
+                      previous: null
+                      results:
+                      - id: 1
+                        title: Top 10 Places to Visit in Mumbai
+                        slug: top-10-places-mumbai
+                        excerpt: Mumbai, the financial capital of India, offers a
+                          perfect blend of modernity and tradition...
+                        author: Travel Expert
+                        city_name: Mumbai
+                        meta_title: Top 10 Places to Visit in Mumbai - Travel Guide
+                        meta_description: Discover the best places to visit in Mumbai...
+                        created_at: '2024-01-15T10:30:00Z'
+                        updated_at: '2024-01-15T10:30:00Z'
+                  summary: Article list response
+          description: ''
+  /api/articles/{slug}/:
+    get:
+      operationId: get_article
+      description: Retrieve detailed information about a specific article by its slug.
+      summary: Get article details
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+        description: Article slug identifier
+        required: true
+        examples:
+          MumbaiArticle:
+            value: top-10-places-mumbai
+            summary: Mumbai article
+          DelhiArticle:
+            value: delhi-food-guide
+            summary: Delhi article
+      tags:
+      - Articles
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Article'
+              examples:
+                ArticleDetailResponse:
+                  value:
+                    id: 1
+                    title: Top 10 Places to Visit in Mumbai
+                    slug: top-10-places-mumbai
+                    content: Mumbai, the financial capital of India, offers a perfect
+                      blend of modernity and tradition. Here are the top 10 places
+                      you must visit...
+                    author: Travel Expert
+                    city_name: Mumbai
+                    city_slug: mumbai
+                    meta_title: Top 10 Places to Visit in Mumbai - Travel Guide
+                    meta_description: Discover the best places to visit in Mumbai
+                      with our comprehensive guide.
+                    created_at: '2024-01-15T10:30:00Z'
+                    updated_at: '2024-01-15T10:30:00Z'
+                  summary: Article detail response
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+                description: Unspecified response body
+          description: ''
+    patch:
+      operationId: articles_partial_update
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - Articles
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedArticleRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedArticleRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedArticleRequest'
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Article'
+          description: ''
+    delete:
+      operationId: articles_destroy
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - Articles
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '204':
+          description: No response body
+    put:
+      operationId: articles_update
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - Articles
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArticleRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ArticleRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ArticleRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Article'
+          description: ''
+  /api/packages/packages/:
+    post:
+      operationId: packages_packages_create
+      tags:
+      - Packages
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PackageRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PackageRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PackageRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Package'
+          description: ''
+    get:
+      operationId: list_packages
+      description: Retrieve a paginated list of active travel packages with their
+        components.
+      summary: List all packages
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - in: query
+        name: page
+        schema:
+          type: integer
+        description: Page number for pagination
+      - in: query
+        name: search
+        schema:
+          type: string
+        description: Search packages by name or description
+      tags:
+      - Packages
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPackageList'
+          description: ''
+  /api/packages/packages/{slug}/:
+    get:
+      operationId: get_package
+      description: Retrieve detailed information about a specific package including
+        all available experiences, hotel tiers, and transport options.
+      summary: Get package details
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+        description: Package slug identifier
+        required: true
+        examples:
+          MumbaiHeritageTour:
+            value: mumbai-heritage-tour
+            summary: Mumbai Heritage Tour
+          GoaBeachPackage:
+            value: goa-beach-package
+            summary: Goa Beach Package
+      tags:
+      - Packages
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Package'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+                description: Unspecified response body
+          description: ''
+    patch:
+      operationId: packages_packages_partial_update
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - Packages
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedPackageRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedPackageRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedPackageRequest'
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Package'
+          description: ''
+    delete:
+      operationId: packages_packages_destroy
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - Packages
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '204':
+          description: No response body
+    put:
+      operationId: packages_packages_update
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - Packages
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PackageRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PackageRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PackageRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Package'
+          description: ''
+  /api/packages/packages/{slug}/calculate_price/:
+    post:
+      operationId: calculate_package_price
+      description: Calculate total price for selected package components. This endpoint
+        provides accurate pricing for the frontend to display.
+      summary: Calculate package price
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+        description: Package slug identifier
+        required: true
+      tags:
+      - Packages
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PriceCalculationRequestRequest'
+            examples:
+              PriceCalculationRequest:
+                value:
+                  experience_ids:
+                  - 1
+                  - 3
+                  - 5
+                  hotel_tier_id: 2
+                  transport_option_id: 1
+                summary: Price calculation request
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PriceCalculationRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PriceCalculationRequestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceCalculationResponse'
+              examples:
+                PriceCalculationResponse:
+                  value:
+                    total_price: '28500.00'
+                    currency: INR
+                    breakdown:
+                      experiences:
+                      - id: 1
+                        name: Gateway of India Tour
+                        price: '2500.00'
+                      - id: 3
+                        name: Marine Drive Walk
+                        price: '1500.00'
+                      - id: 5
+                        name: Bollywood Studio Visit
+                        price: '4000.00'
+                      hotel_tier:
+                        id: 2
+                        name: 4-Star Hotels
+                        price_multiplier: '2.5'
+                      transport:
+                        id: 1
+                        name: AC Cab
+                        price: '3000.00'
+                    pricing_note: This is an estimate. Final price calculated at checkout.
+                  summary: Price calculation response
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+                description: Unspecified response body
+          description: ''
+  /api/packages/packages/{slug}/price_range/:
+    get:
+      operationId: get_package_price_range
+      description: Get estimated price range for a package based on available components.
+      summary: Get package price range
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+        description: Package slug identifier
+        required: true
+      tags:
+      - Packages
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceRangeResponse'
+              examples:
+                PriceRangeResponse:
+                  value:
+                    package: Mumbai Heritage Tour
+                    price_range:
+                      min_price: '15000.00'
+                      max_price: '45000.00'
+                      currency: INR
+                    note: Prices are estimates and may vary based on selected components
+                      and active promotions
+                  summary: Price range response
+          description: ''
+        '500':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+                description: Unspecified response body
+          description: ''
+  /api/packages/experiences/:
+    get:
+      operationId: list_experiences
+      description: Retrieve a list of all available travel experiences.
+      summary: List all experiences
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - Packages
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedExperienceList'
+          description: ''
+  /api/packages/experiences/{id}/:
+    get:
+      operationId: packages_experiences_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this experience.
+        required: true
+      tags:
+      - Packages
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Experience'
+          description: ''
+  /api/packages/hotel-tiers/:
+    get:
+      operationId: list_hotel_tiers
+      description: Retrieve a list of all available hotel tiers with their price multipliers.
+      summary: List all hotel tiers
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - Packages
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedHotelTierList'
+          description: ''
+  /api/packages/hotel-tiers/{id}/:
+    get:
+      operationId: packages_hotel_tiers_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this hotel tier.
+        required: true
+      tags:
+      - Packages
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HotelTier'
+          description: ''
+  /api/packages/transport-options/:
+    get:
+      operationId: list_transport_options
+      description: Retrieve a list of all available transport options with their base
+        prices.
+      summary: List all transport options
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - Packages
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedTransportOptionList'
+          description: ''
+  /api/packages/transport-options/{id}/:
+    get:
+      operationId: packages_transport_options_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this transport option.
+        required: true
+      tags:
+      - Packages
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransportOption'
+          description: ''
+  /api/bookings/:
+    post:
+      operationId: create_booking
+      description: Create a new booking for a travel package with selected components.
+      summary: Create new booking
+      tags:
+      - Bookings
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookingCreateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BookingCreateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BookingCreateRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+                description: Unspecified response body
+          description: ''
+    get:
+      operationId: list_bookings
+      description: Retrieve a paginated list of bookings for the authenticated user.
+      summary: List user bookings
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - Bookings
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedBookingList'
+          description: ''
+  /api/bookings/{id}/:
+    get:
+      operationId: get_booking
+      description: Retrieve detailed information about a specific booking.
+      summary: Get booking details
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - Bookings
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+                description: Unspecified response body
+          description: ''
+    patch:
+      operationId: bookings_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - Bookings
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedBookingRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedBookingRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedBookingRequest'
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+          description: ''
+    delete:
+      operationId: bookings_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - Bookings
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '204':
+          description: No response body
+    put:
+      operationId: bookings_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - Bookings
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookingRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BookingRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BookingRequest'
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+          description: ''
+  /api/bookings/{id}/cancel/:
+    post:
+      operationId: cancel_booking
+      description: Cancel a booking if it is in a cancellable status.
+      summary: Cancel booking
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - Bookings
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookingRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BookingRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BookingRequest'
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+                description: Unspecified response body
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+                description: Unspecified response body
+          description: ''
+  /api/bookings/{id}/initiate_payment/:
+    post:
+      operationId: initiate_booking_payment
+      description: Create a Razorpay order for the booking and transition it to pending
+        payment status. Validates that the booking price has not changed.
+      summary: Initiate payment for booking
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - Bookings
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookingRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BookingRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BookingRequest'
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentInitiationResponse'
+              examples:
+                PaymentInitiationResponse:
+                  value:
+                    razorpay_order_id: order_ABC123XYZ
+                    amount: 2850000
+                    currency: INR
+                    booking_id: 123
+                  summary: Payment initiation response
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+                description: Unspecified response body
+          description: ''
+  /api/payments/webhook/razorpay/:
+    post:
+      operationId: payments_webhook_razorpay_create
+      description: Razorpay webhook handler with FULL VALIDATION.
+      tags:
+      - payments
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/notifications/:
+    post:
+      operationId: notifications_create
+      description: |-
+        Production-level notification viewset with comprehensive features:
+        - User-specific notifications only
+        - Optimized queries with proper indexing
+        - Bulk operations for performance
+        - Statistics endpoint
+        - Filtering and search capabilities
+      tags:
+      - notifications
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationCreateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/NotificationCreateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/NotificationCreateRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationCreate'
+          description: ''
+    get:
+      operationId: notifications_list
+      description: |-
+        Production-level notification viewset with comprehensive features:
+        - User-specific notifications only
+        - Optimized queries with proper indexing
+        - Bulk operations for performance
+        - Statistics endpoint
+        - Filtering and search capabilities
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - notifications
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedNotificationListList'
+          description: ''
+  /api/notifications/clear_old/:
+    delete:
+      operationId: notifications_clear_old_destroy
+      description: Delete notifications older than specified days (default 30)
+      tags:
+      - notifications
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '204':
+          description: No response body
+  /api/notifications/clear_read/:
+    delete:
+      operationId: notifications_clear_read_destroy
+      description: Delete all read notifications for the user
+      tags:
+      - notifications
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '204':
+          description: No response body
+  /api/notifications/mark_all_read/:
+    post:
+      operationId: notifications_mark_all_read_create
+      description: |-
+        Mark all user's notifications as read
+        Bulk update for performance
+      tags:
+      - notifications
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/NotificationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/NotificationRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+          description: ''
+  /api/notifications/mark_all_unread/:
+    post:
+      operationId: notifications_mark_all_unread_create
+      description: Mark all user's notifications as unread
+      tags:
+      - notifications
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/NotificationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/NotificationRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+          description: ''
+  /api/notifications/recent/:
+    get:
+      operationId: notifications_recent_retrieve
+      description: Get recent notifications (last 7 days)
+      tags:
+      - notifications
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+          description: ''
+  /api/notifications/stats/:
+    get:
+      operationId: notifications_stats_retrieve
+      description: Get notification statistics for the current user
+      tags:
+      - notifications
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+          description: ''
+  /api/notifications/unread/:
+    get:
+      operationId: notifications_unread_retrieve
+      description: Get only unread notifications
+      tags:
+      - notifications
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+          description: ''
+  /api/notifications/{id}/:
+    get:
+      operationId: notifications_retrieve
+      description: |-
+        Production-level notification viewset with comprehensive features:
+        - User-specific notifications only
+        - Optimized queries with proper indexing
+        - Bulk operations for performance
+        - Statistics endpoint
+        - Filtering and search capabilities
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - notifications
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+          description: ''
+    patch:
+      operationId: notifications_partial_update
+      description: |-
+        Production-level notification viewset with comprehensive features:
+        - User-specific notifications only
+        - Optimized queries with proper indexing
+        - Bulk operations for performance
+        - Statistics endpoint
+        - Filtering and search capabilities
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - notifications
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedNotificationUpdateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedNotificationUpdateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedNotificationUpdateRequest'
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationUpdate'
+          description: ''
+    delete:
+      operationId: notifications_destroy
+      description: |-
+        Production-level notification viewset with comprehensive features:
+        - User-specific notifications only
+        - Optimized queries with proper indexing
+        - Bulk operations for performance
+        - Statistics endpoint
+        - Filtering and search capabilities
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - notifications
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '204':
+          description: No response body
+    put:
+      operationId: notifications_update
+      description: |-
+        Production-level notification viewset with comprehensive features:
+        - User-specific notifications only
+        - Optimized queries with proper indexing
+        - Bulk operations for performance
+        - Statistics endpoint
+        - Filtering and search capabilities
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - notifications
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationUpdateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/NotificationUpdateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/NotificationUpdateRequest'
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationUpdate'
+          description: ''
+  /api/notifications/{id}/mark_read/:
+    post:
+      operationId: notifications_mark_read_create
+      description: Mark a specific notification as read
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - notifications
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/NotificationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/NotificationRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+          description: ''
+  /api/notifications/{id}/mark_unread/:
+    post:
+      operationId: notifications_mark_unread_create
+      description: Mark a specific notification as unread
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - notifications
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/NotificationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/NotificationRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+          description: ''
+  /api/seo/data/:
+    post:
+      operationId: seo_data_create
+      description: |-
+        Production-level SEO data viewset with comprehensive features:
+        - CRUD operations for SEO data
+        - Content type filtering
+        - SEO analysis and recommendations
+        - Bulk operations
+        - Meta tags generation
+        - Structured data management
+      tags:
+      - seo
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SEODataCreateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SEODataCreateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SEODataCreateRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SEODataCreate'
+          description: ''
+    get:
+      operationId: seo_data_list
+      description: |-
+        Production-level SEO data viewset with comprehensive features:
+        - CRUD operations for SEO data
+        - Content type filtering
+        - SEO analysis and recommendations
+        - Bulk operations
+        - Meta tags generation
+        - Structured data management
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - seo
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedSEODataListList'
+          description: ''
+  /api/seo/data/bulk_create/:
+    post:
+      operationId: seo_data_bulk_create_create
+      description: Create SEO data for multiple objects
+      tags:
+      - seo
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SEODataRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SEODataRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SEODataRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SEOData'
+          description: ''
+  /api/seo/data/bulk_update/:
+    post:
+      operationId: seo_data_bulk_update_create
+      description: Update SEO data for multiple objects
+      tags:
+      - seo
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SEODataRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SEODataRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SEODataRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SEOData'
+          description: ''
+  /api/seo/data/by_content_type/:
+    get:
+      operationId: seo_data_by_content_type_retrieve
+      description: Get SEO data grouped by content type
+      tags:
+      - seo
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SEOData'
+          description: ''
+  /api/seo/data/content_types/:
+    get:
+      operationId: seo_data_content_types_retrieve
+      description: Get available content types for SEO
+      tags:
+      - seo
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SEOData'
+          description: ''
+  /api/seo/data/for_object/:
+    get:
+      operationId: seo_data_for_object_retrieve
+      description: Get SEO data for a specific object
+      tags:
+      - seo
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SEOData'
+          description: ''
+  /api/seo/data/generate_from_content/:
+    post:
+      operationId: seo_data_generate_from_content_create
+      description: Auto-generate SEO data from content object
+      tags:
+      - seo
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SEODataRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SEODataRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SEODataRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SEOData'
+          description: ''
+  /api/seo/data/missing_seo/:
+    get:
+      operationId: seo_data_missing_seo_retrieve
+      description: Find objects missing SEO data
+      tags:
+      - seo
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SEOData'
+          description: ''
+  /api/seo/data/stats/:
+    get:
+      operationId: seo_data_stats_retrieve
+      description: Get SEO statistics
+      tags:
+      - seo
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SEOData'
+          description: ''
+  /api/seo/data/{id}/:
+    get:
+      operationId: seo_data_retrieve
+      description: |-
+        Production-level SEO data viewset with comprehensive features:
+        - CRUD operations for SEO data
+        - Content type filtering
+        - SEO analysis and recommendations
+        - Bulk operations
+        - Meta tags generation
+        - Structured data management
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this SEO Data.
+        required: true
+      tags:
+      - seo
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SEOData'
+          description: ''
+    patch:
+      operationId: seo_data_partial_update
+      description: |-
+        Production-level SEO data viewset with comprehensive features:
+        - CRUD operations for SEO data
+        - Content type filtering
+        - SEO analysis and recommendations
+        - Bulk operations
+        - Meta tags generation
+        - Structured data management
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this SEO Data.
+        required: true
+      tags:
+      - seo
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedSEODataUpdateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedSEODataUpdateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedSEODataUpdateRequest'
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SEODataUpdate'
+          description: ''
+    delete:
+      operationId: seo_data_destroy
+      description: |-
+        Production-level SEO data viewset with comprehensive features:
+        - CRUD operations for SEO data
+        - Content type filtering
+        - SEO analysis and recommendations
+        - Bulk operations
+        - Meta tags generation
+        - Structured data management
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this SEO Data.
+        required: true
+      tags:
+      - seo
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '204':
+          description: No response body
+    put:
+      operationId: seo_data_update
+      description: |-
+        Production-level SEO data viewset with comprehensive features:
+        - CRUD operations for SEO data
+        - Content type filtering
+        - SEO analysis and recommendations
+        - Bulk operations
+        - Meta tags generation
+        - Structured data management
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this SEO Data.
+        required: true
+      tags:
+      - seo
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SEODataUpdateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SEODataUpdateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SEODataUpdateRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SEODataUpdate'
+          description: ''
+  /api/seo/data/{id}/analyze/:
+    post:
+      operationId: seo_data_analyze_create
+      description: Analyze SEO data and provide recommendations
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this SEO Data.
+        required: true
+      tags:
+      - seo
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SEODataRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SEODataRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SEODataRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SEOData'
+          description: ''
+  /api/seo/data/{id}/meta_tags/:
+    get:
+      operationId: seo_data_meta_tags_retrieve
+      description: Generate HTML meta tags for SEO data
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this SEO Data.
+        required: true
+      tags:
+      - seo
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SEOData'
+          description: ''
+  /api/seo/data/{id}/structured_data/:
+    get:
+      operationId: seo_data_structured_data_retrieve
+      description: Generate structured data (JSON-LD) for SEO
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this SEO Data.
+        required: true
+      tags:
+      - seo
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SEOData'
+          description: ''
+  /api/seo/tools/generate_sitemap_data/:
+    post:
+      operationId: seo_tools_generate_sitemap_data_create
+      description: Generate sitemap data for SEO objects
+      tags:
+      - seo
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '200':
+          description: No response body
+  /api/seo/tools/seo_health_check/:
+    get:
+      operationId: seo_tools_seo_health_check_retrieve
+      description: Perform SEO health check across all content
+      tags:
+      - seo
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/seo/tools/validate_structured_data/:
+    post:
+      operationId: seo_tools_validate_structured_data_create
+      description: Validate structured data against Schema.org
+      tags:
+      - seo
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '200':
+          description: No response body
+  /api/media/:
+    post:
+      operationId: media_create
+      description: |-
+        Production-level media library viewset with comprehensive features:
+        - File upload with validation and processing
+        - Image resizing and optimization
+        - Bulk operations for efficiency
+        - Advanced search and filtering
+        - Content type association
+        - Statistics and analytics
+      tags:
+      - media
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MediaUploadRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MediaUploadRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MediaUploadRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaUpload'
+          description: ''
+    get:
+      operationId: media_list
+      description: |-
+        Production-level media library viewset with comprehensive features:
+        - File upload with validation and processing
+        - Image resizing and optimization
+        - Bulk operations for efficiency
+        - Advanced search and filtering
+        - Content type association
+        - Statistics and analytics
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - media
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedMediaListList'
+          description: ''
+  /api/media/bulk_operations/:
+    post:
+      operationId: media_bulk_operations_create
+      description: Perform bulk operations on media files
+      tags:
+      - media
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MediaRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MediaRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MediaRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Media'
+          description: ''
+  /api/media/bulk_upload/:
+    post:
+      operationId: media_bulk_upload_create
+      description: Upload multiple files at once
+      tags:
+      - media
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MediaRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MediaRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MediaRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Media'
+          description: ''
+  /api/media/by_content_type/:
+    get:
+      operationId: media_by_content_type_retrieve
+      description: Get media grouped by content type
+      tags:
+      - media
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Media'
+          description: ''
+  /api/media/cleanup_orphaned/:
+    delete:
+      operationId: media_cleanup_orphaned_destroy
+      description: Delete orphaned media files
+      tags:
+      - media
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '204':
+          description: No response body
+  /api/media/content_types/:
+    get:
+      operationId: media_content_types_retrieve
+      description: Get available content types that can have media
+      tags:
+      - media
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Media'
+          description: ''
+  /api/media/for_object/:
+    get:
+      operationId: media_for_object_retrieve
+      description: Get media for a specific object
+      tags:
+      - media
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Media'
+          description: ''
+  /api/media/gallery/:
+    get:
+      operationId: media_gallery_retrieve
+      description: Get media in gallery format with pagination
+      tags:
+      - media
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Media'
+          description: ''
+  /api/media/orphaned/:
+    get:
+      operationId: media_orphaned_retrieve
+      description: Find orphaned media files (not attached to any object)
+      tags:
+      - media
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Media'
+          description: ''
+  /api/media/recent/:
+    get:
+      operationId: media_recent_retrieve
+      description: Get recently uploaded media
+      tags:
+      - media
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Media'
+          description: ''
+  /api/media/search/:
+    post:
+      operationId: media_search_create
+      description: Advanced search for media files
+      tags:
+      - media
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MediaRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MediaRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MediaRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Media'
+          description: ''
+  /api/media/stats/:
+    get:
+      operationId: media_stats_retrieve
+      description: Get media library statistics
+      tags:
+      - media
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Media'
+          description: ''
+  /api/media/{id}/:
+    get:
+      operationId: media_retrieve
+      description: |-
+        Production-level media library viewset with comprehensive features:
+        - File upload with validation and processing
+        - Image resizing and optimization
+        - Bulk operations for efficiency
+        - Advanced search and filtering
+        - Content type association
+        - Statistics and analytics
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this media.
+        required: true
+      tags:
+      - media
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Media'
+          description: ''
+    patch:
+      operationId: media_partial_update
+      description: |-
+        Production-level media library viewset with comprehensive features:
+        - File upload with validation and processing
+        - Image resizing and optimization
+        - Bulk operations for efficiency
+        - Advanced search and filtering
+        - Content type association
+        - Statistics and analytics
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this media.
+        required: true
+      tags:
+      - media
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMediaUpdateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMediaUpdateRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMediaUpdateRequest'
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaUpdate'
+          description: ''
+    delete:
+      operationId: media_destroy
+      description: |-
+        Production-level media library viewset with comprehensive features:
+        - File upload with validation and processing
+        - Image resizing and optimization
+        - Bulk operations for efficiency
+        - Advanced search and filtering
+        - Content type association
+        - Statistics and analytics
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this media.
+        required: true
+      tags:
+      - media
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '204':
+          description: No response body
+    put:
+      operationId: media_update
+      description: |-
+        Production-level media library viewset with comprehensive features:
+        - File upload with validation and processing
+        - Image resizing and optimization
+        - Bulk operations for efficiency
+        - Advanced search and filtering
+        - Content type association
+        - Statistics and analytics
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this media.
+        required: true
+      tags:
+      - media
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MediaUpdateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MediaUpdateRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MediaUpdateRequest'
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaUpdate'
+          description: ''
+  /api/media/{id}/download/:
+    get:
+      operationId: media_download_retrieve
+      description: Download media file
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this media.
+        required: true
+      tags:
+      - media
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Media'
+          description: ''
+  /api/media/{id}/optimize/:
+    post:
+      operationId: media_optimize_create
+      description: Optimize media file (compress images, etc.)
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this media.
+        required: true
+      tags:
+      - media
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MediaRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MediaRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MediaRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Media'
+          description: ''
+  /api/media/{id}/thumbnail/:
+    get:
+      operationId: media_thumbnail_retrieve
+      description: Get thumbnail for image files
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this media.
+        required: true
+      tags:
+      - media
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Media'
+          description: ''
+  /api/media/tools/cleanup_unused/:
+    post:
+      operationId: media_tools_cleanup_unused_create
+      description: Clean up unused media files from storage
+      tags:
+      - media
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '200':
+          description: No response body
+  /api/media/tools/storage_info/:
+    get:
+      operationId: media_tools_storage_info_retrieve
+      description: Get storage information and usage
+      tags:
+      - media
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/media/tools/validate_file/:
+    post:
+      operationId: media_tools_validate_file_create
+      description: Validate a file before upload
+      tags:
+      - media
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '200':
+          description: No response body
+  /api/pricing/rules/:
+    post:
+      operationId: pricing_rules_create
+      description: Admin-only viewset for managing pricing rules
+      tags:
+      - pricing
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PricingRuleRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PricingRuleRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PricingRuleRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PricingRule'
+          description: ''
+    get:
+      operationId: pricing_rules_list
+      description: Admin-only viewset for managing pricing rules
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - pricing
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPricingRuleList'
+          description: ''
+  /api/pricing/rules/active_rules/:
+    get:
+      operationId: pricing_rules_active_rules_retrieve
+      description: Get all currently active pricing rules
+      tags:
+      - pricing
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PricingRule'
+          description: ''
+  /api/pricing/rules/test_pricing/:
+    post:
+      operationId: pricing_rules_test_pricing_create
+      description: Test pricing calculation for given components
+      tags:
+      - pricing
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PricingRuleRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PricingRuleRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PricingRuleRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PricingRule'
+          description: ''
+  /api/pricing/rules/{id}/:
+    get:
+      operationId: pricing_rules_retrieve
+      description: Admin-only viewset for managing pricing rules
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this pricing rule.
+        required: true
+      tags:
+      - pricing
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PricingRule'
+          description: ''
+    patch:
+      operationId: pricing_rules_partial_update
+      description: Admin-only viewset for managing pricing rules
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this pricing rule.
+        required: true
+      tags:
+      - pricing
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedPricingRuleRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedPricingRuleRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedPricingRuleRequest'
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PricingRule'
+          description: ''
+    delete:
+      operationId: pricing_rules_destroy
+      description: Admin-only viewset for managing pricing rules
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this pricing rule.
+        required: true
+      tags:
+      - pricing
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '204':
+          description: No response body
+    put:
+      operationId: pricing_rules_update
+      description: Admin-only viewset for managing pricing rules
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this pricing rule.
+        required: true
+      tags:
+      - pricing
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PricingRuleRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PricingRuleRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PricingRuleRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - type: http
+        scheme: bearer
+        bearerFormat: JWT
+      - type: apiKey
+        in: header
+        name: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PricingRule'
+          description: ''
+components:
+  schemas:
+    Article:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          maxLength: 255
+        slug:
+          type: string
+          maxLength: 50
+          pattern: ^[-a-zA-Z0-9_]+$
+        content:
+          type: string
+        author:
+          type: string
+          maxLength: 100
+        city_name:
+          type: string
+          readOnly: true
+        city_slug:
+          type: string
+          readOnly: true
+        meta_title:
+          type: string
+          maxLength: 255
+        meta_description:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - city_name
+      - city_slug
+      - content
+      - created_at
+      - id
+      - slug
+      - title
+      - updated_at
+    ArticleList:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          maxLength: 255
+        slug:
+          type: string
+          maxLength: 50
+          pattern: ^[-a-zA-Z0-9_]+$
+        excerpt:
+          type: string
+          readOnly: true
+        author:
+          type: string
+          maxLength: 100
+        city_name:
+          type: string
+          readOnly: true
+        meta_title:
+          type: string
+          maxLength: 255
+        meta_description:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - city_name
+      - created_at
+      - excerpt
+      - id
+      - slug
+      - title
+      - updated_at
+    ArticleRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        slug:
+          type: string
+          minLength: 1
+          maxLength: 50
+          pattern: ^[-a-zA-Z0-9_]+$
+        content:
+          type: string
+          minLength: 1
+        author:
+          type: string
+          maxLength: 100
+        meta_title:
+          type: string
+          maxLength: 255
+        meta_description:
+          type: string
+      required:
+      - content
+      - slug
+      - title
+    ArticleSummary:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 255
+        slug:
+          type: string
+          maxLength: 50
+          pattern: ^[-a-zA-Z0-9_]+$
+        author:
+          type: string
+          maxLength: 100
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - slug
+      - title
+    Booking:
+      type: object
+      description: Read-only serializer for displaying bookings
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        user_email:
+          type: string
+          readOnly: true
+        package:
+          allOf:
+          - $ref: '#/components/schemas/Package'
+          readOnly: true
+        selected_experiences:
+          type: array
+          items:
+            $ref: '#/components/schemas/Experience'
+          readOnly: true
+        selected_hotel_tier:
+          allOf:
+          - $ref: '#/components/schemas/HotelTier'
+          readOnly: true
+        selected_transport:
+          allOf:
+          - $ref: '#/components/schemas/TransportOption'
+          readOnly: true
+        total_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          readOnly: true
+        status:
+          $ref: '#/components/schemas/StatusEnum'
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - package
+      - selected_experiences
+      - selected_hotel_tier
+      - selected_transport
+      - total_price
+      - updated_at
+      - user_email
+    BookingCreateRequest:
+      type: object
+      description: |-
+        Create serializer: DOES NOT accept total_price.
+        Price calculated entirely on backend.
+      properties:
+        package_id:
+          type: integer
+          writeOnly: true
+        selected_experience_ids:
+          type: array
+          items:
+            type: integer
+          writeOnly: true
+        hotel_tier_id:
+          type: integer
+          writeOnly: true
+        transport_option_id:
+          type: integer
+          writeOnly: true
+      required:
+      - hotel_tier_id
+      - package_id
+      - selected_experience_ids
+      - transport_option_id
+    BookingRequest:
+      type: object
+      description: Read-only serializer for displaying bookings
+      properties:
+        status:
+          $ref: '#/components/schemas/StatusEnum'
+    CityContext:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        slug:
+          type: string
+          maxLength: 50
+          pattern: ^[-a-zA-Z0-9_]+$
+        description:
+          type: string
+        hero_image:
+          type: string
+          format: uri
+          nullable: true
+        highlights:
+          type: array
+          items:
+            $ref: '#/components/schemas/Highlight'
+          readOnly: true
+        travel_tips:
+          type: array
+          items:
+            $ref: '#/components/schemas/TravelTip'
+          readOnly: true
+        articles:
+          type: array
+          items:
+            $ref: '#/components/schemas/ArticleSummary'
+          readOnly: true
+        packages:
+          type: array
+          items:
+            $ref: '#/components/schemas/PackageSummary'
+          readOnly: true
+        gallery:
+          type: string
+          readOnly: true
+        meta_title:
+          type: string
+          maxLength: 255
+        meta_description:
+          type: string
+      required:
+      - articles
+      - description
+      - gallery
+      - highlights
+      - name
+      - packages
+      - slug
+      - travel_tips
+    Experience:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+        base_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - base_price
+      - created_at
+      - description
+      - id
+      - name
+    ExperiencePrice:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        price:
+          type: string
+      required:
+      - id
+      - name
+      - price
+    ExperienceRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          minLength: 1
+        base_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+      required:
+      - base_price
+      - description
+      - name
+    Highlight:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+        icon:
+          type: string
+          description: Lucide icon name
+          maxLength: 50
+      required:
+      - description
+      - title
+    HotelTier:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 100
+        description:
+          type: string
+        price_multiplier:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,2}(?:\.\d{0,2})?$
+      required:
+      - description
+      - id
+      - name
+    HotelTierPrice:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        price_multiplier:
+          type: string
+      required:
+      - id
+      - name
+      - price_multiplier
+    HotelTierRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+          minLength: 1
+        price_multiplier:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,2}(?:\.\d{0,2})?$
+      required:
+      - description
+      - name
+    Media:
+      type: object
+      description: Full media serializer for detailed views
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        file:
+          type: string
+          format: uri
+        file_url:
+          type: string
+          readOnly: true
+        file_size:
+          type: string
+          readOnly: true
+        file_type:
+          type: string
+          readOnly: true
+        is_image:
+          type: string
+          readOnly: true
+        image_dimensions:
+          type: string
+          readOnly: true
+        alt_text:
+          type: string
+          maxLength: 255
+        title:
+          type: string
+          maxLength: 255
+        content_type:
+          type: integer
+        object_id:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        content_type_name:
+          type: string
+          readOnly: true
+        content_object_str:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - content_object_str
+      - content_type
+      - content_type_name
+      - created_at
+      - file
+      - file_size
+      - file_type
+      - file_url
+      - id
+      - image_dimensions
+      - is_image
+      - object_id
+    MediaList:
+      type: object
+      description: Lightweight serializer for list views
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        file_url:
+          type: string
+          readOnly: true
+        file_type:
+          type: string
+          readOnly: true
+        title:
+          type: string
+          maxLength: 255
+        alt_text:
+          type: string
+          maxLength: 255
+        content_type_name:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - content_type_name
+      - created_at
+      - file_type
+      - file_url
+      - id
+    MediaRequest:
+      type: object
+      description: Full media serializer for detailed views
+      properties:
+        file:
+          type: string
+          format: binary
+        alt_text:
+          type: string
+          maxLength: 255
+        title:
+          type: string
+          maxLength: 255
+        content_type:
+          type: integer
+        object_id:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+      required:
+      - content_type
+      - file
+      - object_id
+    MediaUpdate:
+      type: object
+      description: Serializer for updating media metadata (not the file itself)
+      properties:
+        title:
+          type: string
+          maxLength: 255
+        alt_text:
+          type: string
+          maxLength: 255
+    MediaUpdateRequest:
+      type: object
+      description: Serializer for updating media metadata (not the file itself)
+      properties:
+        title:
+          type: string
+          maxLength: 255
+        alt_text:
+          type: string
+          maxLength: 255
+    MediaUpload:
+      type: object
+      description: Serializer for uploading media files
+      properties:
+        file:
+          type: string
+          format: uri
+        title:
+          type: string
+          maxLength: 255
+        alt_text:
+          type: string
+          maxLength: 255
+        content_type:
+          type: integer
+        object_id:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+      required:
+      - content_type
+      - file
+      - object_id
+    MediaUploadRequest:
+      type: object
+      description: Serializer for uploading media files
+      properties:
+        file:
+          type: string
+          format: binary
+        title:
+          type: string
+          maxLength: 255
+        alt_text:
+          type: string
+          maxLength: 255
+        content_type:
+          type: integer
+        object_id:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+      required:
+      - content_type
+      - file
+      - object_id
+    Notification:
+      type: object
+      description: Full notification serializer for detailed views
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        user_email:
+          type: string
+          readOnly: true
+        title:
+          type: string
+          maxLength: 255
+        message:
+          type: string
+        is_read:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - message
+      - title
+      - user_email
+    NotificationCreate:
+      type: object
+      description: Serializer for creating notifications (admin/system use)
+      properties:
+        title:
+          type: string
+          maxLength: 255
+        message:
+          type: string
+        user:
+          type: integer
+      required:
+      - message
+      - title
+      - user
+    NotificationCreateRequest:
+      type: object
+      description: Serializer for creating notifications (admin/system use)
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        message:
+          type: string
+          minLength: 1
+        user:
+          type: integer
+      required:
+      - message
+      - title
+      - user
+    NotificationList:
+      type: object
+      description: Lightweight serializer for list views to optimize performance
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          maxLength: 255
+        message:
+          type: string
+        is_read:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - message
+      - title
+    NotificationRequest:
+      type: object
+      description: Full notification serializer for detailed views
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        message:
+          type: string
+          minLength: 1
+        is_read:
+          type: boolean
+      required:
+      - message
+      - title
+    NotificationUpdate:
+      type: object
+      description: Serializer for updating notification read status
+      properties:
+        is_read:
+          type: boolean
+    NotificationUpdateRequest:
+      type: object
+      description: Serializer for updating notification read status
+      properties:
+        is_read:
+          type: boolean
+    OAuthSyncRequestRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+          description: User email address
+        first_name:
+          type: string
+          minLength: 1
+          description: User first name
+        last_name:
+          type: string
+          minLength: 1
+          description: User last name
+        provider:
+          allOf:
+          - $ref: '#/components/schemas/ProviderEnum'
+          description: |-
+            OAuth provider (google or github)
+
+            * `google` - google
+            * `github` - github
+        uid:
+          type: string
+          minLength: 1
+          description: OAuth provider user ID
+        token:
+          type: string
+          minLength: 1
+          description: OAuth access token for verification
+      required:
+      - email
+      - provider
+      - token
+      - uid
+    OAuthSyncResponse:
+      type: object
+      properties:
+        user_id:
+          type: integer
+        email:
+          type: string
+          format: email
+        first_name:
+          type: string
+        last_name:
+          type: string
+        access:
+          type: string
+          description: JWT access token
+        refresh:
+          type: string
+          description: JWT refresh token
+      required:
+      - access
+      - email
+      - first_name
+      - last_name
+      - refresh
+      - user_id
+    Package:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 200
+        slug:
+          type: string
+          maxLength: 50
+          pattern: ^[-a-zA-Z0-9_]+$
+        description:
+          type: string
+        city_name:
+          type: string
+          readOnly: true
+        experiences:
+          type: array
+          items:
+            $ref: '#/components/schemas/Experience'
+          readOnly: true
+        hotel_tiers:
+          type: array
+          items:
+            $ref: '#/components/schemas/HotelTier'
+          readOnly: true
+        transport_options:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransportOption'
+          readOnly: true
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - city_name
+      - created_at
+      - description
+      - experiences
+      - hotel_tiers
+      - id
+      - name
+      - slug
+      - transport_options
+    PackageRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        slug:
+          type: string
+          minLength: 1
+          maxLength: 50
+          pattern: ^[-a-zA-Z0-9_]+$
+        description:
+          type: string
+          minLength: 1
+        is_active:
+          type: boolean
+      required:
+      - description
+      - name
+      - slug
+    PackageSummary:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 200
+        slug:
+          type: string
+          maxLength: 50
+          pattern: ^[-a-zA-Z0-9_]+$
+        description:
+          type: string
+      required:
+      - description
+      - name
+      - slug
+    PaginatedArticleListList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ArticleList'
+    PaginatedBookingList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Booking'
+    PaginatedExperienceList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Experience'
+    PaginatedHotelTierList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/HotelTier'
+    PaginatedMediaListList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/MediaList'
+    PaginatedNotificationListList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/NotificationList'
+    PaginatedPackageList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Package'
+    PaginatedPricingRuleList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/PricingRule'
+    PaginatedSEODataListList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SEODataList'
+    PaginatedTransportOptionList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransportOption'
+    PatchedArticleRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        slug:
+          type: string
+          minLength: 1
+          maxLength: 50
+          pattern: ^[-a-zA-Z0-9_]+$
+        content:
+          type: string
+          minLength: 1
+        author:
+          type: string
+          maxLength: 100
+        meta_title:
+          type: string
+          maxLength: 255
+        meta_description:
+          type: string
+    PatchedBookingRequest:
+      type: object
+      description: Read-only serializer for displaying bookings
+      properties:
+        status:
+          $ref: '#/components/schemas/StatusEnum'
+    PatchedMediaUpdateRequest:
+      type: object
+      description: Serializer for updating media metadata (not the file itself)
+      properties:
+        title:
+          type: string
+          maxLength: 255
+        alt_text:
+          type: string
+          maxLength: 255
+    PatchedNotificationUpdateRequest:
+      type: object
+      description: Serializer for updating notification read status
+      properties:
+        is_read:
+          type: boolean
+    PatchedPackageRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        slug:
+          type: string
+          minLength: 1
+          maxLength: 50
+          pattern: ^[-a-zA-Z0-9_]+$
+        description:
+          type: string
+          minLength: 1
+        is_active:
+          type: boolean
+    PatchedPricingRuleRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        rule_type:
+          $ref: '#/components/schemas/RuleTypeEnum'
+        value:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        is_percentage:
+          type: boolean
+        target_package:
+          type: integer
+          nullable: true
+        active_from:
+          type: string
+          format: date-time
+        active_to:
+          type: string
+          format: date-time
+          nullable: true
+        is_active:
+          type: boolean
+    PatchedSEODataUpdateRequest:
+      type: object
+      description: Serializer for updating SEO data (excluding content_type and object_id)
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          minLength: 1
+        keywords:
+          type: string
+          maxLength: 255
+        og_title:
+          type: string
+          maxLength: 255
+        og_description:
+          type: string
+        og_image:
+          type: string
+          format: binary
+          nullable: true
+        structured_data:
+          nullable: true
+    PaymentInitiationResponse:
+      type: object
+      properties:
+        razorpay_order_id:
+          type: string
+        amount:
+          type: integer
+          description: Amount in paise (INR)
+        currency:
+          type: string
+        booking_id:
+          type: integer
+      required:
+      - amount
+      - booking_id
+      - currency
+      - razorpay_order_id
+    PriceBreakdown:
+      type: object
+      properties:
+        experiences:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExperiencePrice'
+        hotel_tier:
+          $ref: '#/components/schemas/HotelTierPrice'
+        transport:
+          $ref: '#/components/schemas/TransportPrice'
+      required:
+      - experiences
+      - hotel_tier
+      - transport
+    PriceCalculationRequestRequest:
+      type: object
+      properties:
+        experience_ids:
+          type: array
+          items:
+            type: integer
+          description: List of experience IDs to include in the package
+        hotel_tier_id:
+          type: integer
+          description: Selected hotel tier ID
+        transport_option_id:
+          type: integer
+          description: Selected transport option ID
+      required:
+      - experience_ids
+      - hotel_tier_id
+      - transport_option_id
+    PriceCalculationResponse:
+      type: object
+      properties:
+        total_price:
+          type: string
+        currency:
+          type: string
+        breakdown:
+          $ref: '#/components/schemas/PriceBreakdown'
+        pricing_note:
+          type: string
+      required:
+      - breakdown
+      - currency
+      - pricing_note
+      - total_price
+    PriceRange:
+      type: object
+      properties:
+        min_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        max_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        currency:
+          type: string
+      required:
+      - currency
+      - max_price
+      - min_price
+    PriceRangeResponse:
+      type: object
+      properties:
+        package:
+          type: string
+        price_range:
+          $ref: '#/components/schemas/PriceRange'
+        note:
+          type: string
+      required:
+      - note
+      - package
+      - price_range
+    PricingRule:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 100
+        rule_type:
+          $ref: '#/components/schemas/RuleTypeEnum'
+        value:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        is_percentage:
+          type: boolean
+        target_package:
+          type: integer
+          nullable: true
+        target_package_name:
+          type: string
+          readOnly: true
+        active_from:
+          type: string
+          format: date-time
+        active_to:
+          type: string
+          format: date-time
+          nullable: true
+        is_active:
+          type: boolean
+      required:
+      - active_from
+      - id
+      - name
+      - rule_type
+      - target_package_name
+      - value
+    PricingRuleRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        rule_type:
+          $ref: '#/components/schemas/RuleTypeEnum'
+        value:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        is_percentage:
+          type: boolean
+        target_package:
+          type: integer
+          nullable: true
+        active_from:
+          type: string
+          format: date-time
+        active_to:
+          type: string
+          format: date-time
+          nullable: true
+        is_active:
+          type: boolean
+      required:
+      - active_from
+      - name
+      - rule_type
+      - value
+    ProviderEnum:
+      enum:
+      - google
+      - github
+      type: string
+      description: |-
+        * `google` - google
+        * `github` - github
+    RuleTypeEnum:
+      enum:
+      - MARKUP
+      - DISCOUNT
+      type: string
+      description: |-
+        * `MARKUP` - Markup
+        * `DISCOUNT` - Discount
+    SEOData:
+      type: object
+      description: Full SEO data serializer for detailed views
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        content_type:
+          type: integer
+        object_id:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        content_type_name:
+          type: string
+          readOnly: true
+        content_object_str:
+          type: string
+          readOnly: true
+        title:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+        keywords:
+          type: string
+          maxLength: 255
+        og_title:
+          type: string
+          maxLength: 255
+        og_description:
+          type: string
+        og_image:
+          type: string
+          format: uri
+          nullable: true
+        structured_data:
+          nullable: true
+      required:
+      - content_object_str
+      - content_type
+      - content_type_name
+      - description
+      - id
+      - object_id
+      - title
+    SEODataCreate:
+      type: object
+      description: Serializer for creating SEO data
+      properties:
+        content_type:
+          type: integer
+        object_id:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        title:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+        keywords:
+          type: string
+          maxLength: 255
+        og_title:
+          type: string
+          maxLength: 255
+        og_description:
+          type: string
+        og_image:
+          type: string
+          format: uri
+          nullable: true
+        structured_data:
+          nullable: true
+      required:
+      - content_type
+      - description
+      - object_id
+      - title
+    SEODataCreateRequest:
+      type: object
+      description: Serializer for creating SEO data
+      properties:
+        content_type:
+          type: integer
+        object_id:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          minLength: 1
+        keywords:
+          type: string
+          maxLength: 255
+        og_title:
+          type: string
+          maxLength: 255
+        og_description:
+          type: string
+        og_image:
+          type: string
+          format: binary
+          nullable: true
+        structured_data:
+          nullable: true
+      required:
+      - content_type
+      - description
+      - object_id
+      - title
+    SEODataList:
+      type: object
+      description: Lightweight serializer for list views
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        content_type_name:
+          type: string
+          readOnly: true
+        content_object_str:
+          type: string
+          readOnly: true
+        title:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+        keywords:
+          type: string
+          maxLength: 255
+      required:
+      - content_object_str
+      - content_type_name
+      - description
+      - id
+      - title
+    SEODataRequest:
+      type: object
+      description: Full SEO data serializer for detailed views
+      properties:
+        content_type:
+          type: integer
+        object_id:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          minLength: 1
+        keywords:
+          type: string
+          maxLength: 255
+        og_title:
+          type: string
+          maxLength: 255
+        og_description:
+          type: string
+        og_image:
+          type: string
+          format: binary
+          nullable: true
+        structured_data:
+          nullable: true
+      required:
+      - content_type
+      - description
+      - object_id
+      - title
+    SEODataUpdate:
+      type: object
+      description: Serializer for updating SEO data (excluding content_type and object_id)
+      properties:
+        title:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+        keywords:
+          type: string
+          maxLength: 255
+        og_title:
+          type: string
+          maxLength: 255
+        og_description:
+          type: string
+        og_image:
+          type: string
+          format: uri
+          nullable: true
+        structured_data:
+          nullable: true
+      required:
+      - description
+      - title
+    SEODataUpdateRequest:
+      type: object
+      description: Serializer for updating SEO data (excluding content_type and object_id)
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          minLength: 1
+        keywords:
+          type: string
+          maxLength: 255
+        og_title:
+          type: string
+          maxLength: 255
+        og_description:
+          type: string
+        og_image:
+          type: string
+          format: binary
+          nullable: true
+        structured_data:
+          nullable: true
+      required:
+      - description
+      - title
+    StatusEnum:
+      enum:
+      - DRAFT
+      - PENDING_PAYMENT
+      - CONFIRMED
+      - CANCELLED
+      type: string
+      description: |-
+        * `DRAFT` - Draft
+        * `PENDING_PAYMENT` - Pending Payment
+        * `CONFIRMED` - Confirmed
+        * `CANCELLED` - Cancelled
+    TransportOption:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 100
+        description:
+          type: string
+        base_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+      required:
+      - base_price
+      - description
+      - id
+      - name
+    TransportOptionRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+          minLength: 1
+        base_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+      required:
+      - base_price
+      - description
+      - name
+    TransportPrice:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        price:
+          type: string
+      required:
+      - id
+      - name
+      - price
+    TravelTip:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 200
+        content:
+          type: string
+      required:
+      - content
+      - title
+  securitySchemes:
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+tags:
+- name: Authentication
+  description: User authentication and authorization
+- name: Cities
+  description: City information and context
+- name: Articles
+  description: Travel articles and content
+- name: Packages
+  description: Travel packages and components
+- name: Bookings
+  description: Booking management
+- name: Payments
+  description: Payment processing
+- name: Notifications
+  description: User notifications
+- name: SEO
+  description: SEO metadata management
+- name: Media
+  description: Media library management
+- name: Pricing
+  description: Dynamic pricing engine

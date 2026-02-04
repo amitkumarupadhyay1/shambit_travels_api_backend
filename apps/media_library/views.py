@@ -1,0 +1,505 @@
+from rest_framework import viewsets, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from django.contrib.contenttypes.models import ContentType
+from django.db.models import Q, Count, Sum
+from django.shortcuts import get_object_or_404
+from django.http import Http404, HttpResponse
+from django.core.paginator import Paginator
+from django.utils import timezone
+from datetime import timedelta
+import os
+from PIL import Image
+from .models import Media
+from .serializers import (
+    MediaSerializer, 
+    MediaListSerializer,
+    MediaUploadSerializer,
+    MediaUpdateSerializer,
+    MediaBulkSerializer,
+    MediaStatsSerializer,
+    MediaSearchSerializer,
+    ContentTypeMediaSerializer,
+    MediaGallerySerializer
+)
+from .services.media_service import MediaService
+from .utils import MediaProcessor, MediaValidator
+
+class MediaViewSet(viewsets.ModelViewSet):
+    """
+    Production-level media library viewset with comprehensive features:
+    - File upload with validation and processing
+    - Image resizing and optimization
+    - Bulk operations for efficiency
+    - Advanced search and filtering
+    - Content type association
+    - Statistics and analytics
+    """
+    permission_classes = [IsAuthenticatedOrReadOnly]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+    
+    def get_queryset(self):
+        """
+        Optimized queryset with filtering capabilities
+        """
+        queryset = Media.objects.select_related('content_type').all()
+        
+        # Filter by content type
+        content_type = self.request.query_params.get('content_type')
+        if content_type:
+            try:
+                app_label, model = content_type.split('.')
+                ct = ContentType.objects.get(app_label=app_label, model=model)
+                queryset = queryset.filter(content_type=ct)
+            except (ValueError, ContentType.DoesNotExist):
+                pass
+        
+        # Filter by object ID
+        object_id = self.request.query_params.get('object_id')
+        if object_id:
+            try:
+                queryset = queryset.filter(object_id=int(object_id))
+            except ValueError:
+                pass
+        
+        # Filter by file type
+        file_type = self.request.query_params.get('file_type')
+        if file_type:
+            if file_type == 'image':
+                queryset = queryset.filter(
+                    file__iregex=r'\.(jpg|jpeg|png|gif|webp)$'
+                )
+            elif file_type == 'video':
+                queryset = queryset.filter(
+                    file__iregex=r'\.(mp4|avi|mov|wmv|flv)$'
+                )
+            elif file_type == 'document':
+                queryset = queryset.filter(file__iregex=r'\.pdf$')
+        
+        # Search in title and alt_text
+        search = self.request.query_params.get('search')
+        if search:
+            queryset = queryset.filter(
+                Q(title__icontains=search) |
+                Q(alt_text__icontains=search) |
+                Q(file__icontains=search)
+            )
+        
+        # Date range filtering
+        date_from = self.request.query_params.get('date_from')
+        date_to = self.request.query_params.get('date_to')
+        
+        if date_from:
+            try:
+                from datetime import datetime
+                date_from_obj = datetime.strptime(date_from, '%Y-%m-%d').date()
+                queryset = queryset.filter(created_at__date__gte=date_from_obj)
+            except ValueError:
+                pass
+        
+        if date_to:
+            try:
+                from datetime import datetime
+                date_to_obj = datetime.strptime(date_to, '%Y-%m-%d').date()
+                queryset = queryset.filter(created_at__date__lte=date_to_obj)
+            except ValueError:
+                pass
+        
+        return queryset.order_by('-created_at')
+    
+    def get_serializer_class(self):
+        """
+        Return appropriate serializer based on action
+        """
+        if self.action == 'list':
+            return MediaListSerializer
+        elif self.action == 'create':
+            return MediaUploadSerializer
+        elif self.action in ['update', 'partial_update']:
+            return MediaUpdateSerializer
+        return MediaSerializer
+    
+    def perform_create(self, serializer):
+        """
+        Handle file upload with processing
+        """
+        media = serializer.save()
+        
+        # Process the uploaded file
+        processor = MediaProcessor()
+        processor.process_media(media)
+    
+    @action(detail=False, methods=['get'])
+    def gallery(self, request):
+        """
+        Get media in gallery format with pagination
+        """
+        queryset = self.get_queryset()
+        
+        # Pagination
+        page_size = int(request.query_params.get('page_size', 20))
+        page = int(request.query_params.get('page', 1))
+        
+        paginator = Paginator(queryset, page_size)
+        page_obj = paginator.get_page(page)
+        
+        serializer = MediaListSerializer(
+            page_obj.object_list, 
+            many=True, 
+            context={'request': request}
+        )
+        
+        gallery_data = {
+            'media': serializer.data,
+            'total_count': paginator.count,
+            'page_count': paginator.num_pages,
+            'current_page': page,
+            'has_next': page_obj.has_next(),
+            'has_previous': page_obj.has_previous()
+        }
+        
+        gallery_serializer = MediaGallerySerializer(gallery_data)
+        return Response(gallery_serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def by_content_type(self, request):
+        """
+        Get media grouped by content type
+        """
+        content_types = ContentType.objects.filter(
+            media__isnull=False
+        ).distinct().prefetch_related('media_set')
+        
+        serializer = ContentTypeMediaSerializer(content_types, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def for_object(self, request):
+        """
+        Get media for a specific object
+        """
+        content_type = request.query_params.get('content_type')
+        object_id = request.query_params.get('object_id')
+        
+        if not content_type or not object_id:
+            return Response(
+                {'error': 'content_type and object_id parameters are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            app_label, model = content_type.split('.')
+            ct = ContentType.objects.get(app_label=app_label, model=model)
+            media_files = Media.objects.filter(content_type=ct, object_id=object_id)
+            
+            serializer = MediaListSerializer(
+                media_files, 
+                many=True, 
+                context={'request': request}
+            )
+            return Response(serializer.data)
+        except (ValueError, ContentType.DoesNotExist):
+            return Response(
+                {'error': 'Invalid content_type format'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    
+    @action(detail=True, methods=['get'])
+    def download(self, request, pk=None):
+        """
+        Download media file
+        """
+        media = self.get_object()
+        
+        if not media.file:
+            raise Http404("File not found")
+        
+        try:
+            with open(media.file.path, 'rb') as f:
+                response = HttpResponse(
+                    f.read(),
+                    content_type='application/octet-stream'
+                )
+                response['Content-Disposition'] = f'attachment; filename="{os.path.basename(media.file.name)}"'
+                return response
+        except FileNotFoundError:
+            raise Http404("File not found on disk")
+    
+    @action(detail=True, methods=['get'])
+    def thumbnail(self, request, pk=None):
+        """
+        Get thumbnail for image files
+        """
+        media = self.get_object()
+        
+        if not media.file or not media.file.name.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.webp')):
+            return Response(
+                {'error': 'Thumbnail only available for image files'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        size = request.query_params.get('size', '150x150')
+        try:
+            width, height = map(int, size.split('x'))
+        except ValueError:
+            width, height = 150, 150
+        
+        processor = MediaProcessor()
+        thumbnail_path = processor.generate_thumbnail(media, width, height)
+        
+        if thumbnail_path:
+            return Response({
+                'thumbnail_url': request.build_absolute_uri(thumbnail_path)
+            })
+        else:
+            return Response(
+                {'error': 'Could not generate thumbnail'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
+    def bulk_upload(self, request):
+        """
+        Upload multiple files at once
+        """
+        files = request.FILES.getlist('files')
+        content_type_id = request.data.get('content_type')
+        object_id = request.data.get('object_id')
+        
+        if not files:
+            return Response(
+                {'error': 'No files provided'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        results = []
+        errors = []
+        
+        for file in files:
+            try:
+                # Validate file
+                validator = MediaValidator()
+                validator.validate_file(file)
+                
+                # Create media object
+                media = Media.objects.create(
+                    file=file,
+                    title=file.name,
+                    content_type_id=content_type_id,
+                    object_id=object_id
+                )
+                
+                # Process the file
+                processor = MediaProcessor()
+                processor.process_media(media)
+                
+                serializer = MediaSerializer(media, context={'request': request})
+                results.append(serializer.data)
+                
+            except Exception as e:
+                errors.append({
+                    'file': file.name,
+                    'error': str(e)
+                })
+        
+        return Response({
+            'uploaded': len(results),
+            'errors': len(errors),
+            'results': results,
+            'error_details': errors
+        })
+    
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
+    def bulk_operations(self, request):
+        """
+        Perform bulk operations on media files
+        """
+        serializer = MediaBulkSerializer(data=request.data)
+        if serializer.is_valid():
+            result = MediaService.bulk_operation(
+                media_ids=serializer.validated_data['media_ids'],
+                action=serializer.validated_data['action'],
+                metadata=serializer.validated_data.get('metadata', {})
+            )
+            return Response(result)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    @action(detail=False, methods=['get'])
+    def stats(self, request):
+        """
+        Get media library statistics
+        """
+        stats = MediaService.get_media_stats()
+        serializer = MediaStatsSerializer(stats)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def recent(self, request):
+        """
+        Get recently uploaded media
+        """
+        days = int(request.query_params.get('days', 7))
+        recent_date = timezone.now() - timedelta(days=days)
+        
+        recent_media = self.get_queryset().filter(
+            created_at__gte=recent_date
+        )[:20]  # Limit to 20 most recent
+        
+        serializer = MediaListSerializer(
+            recent_media, 
+            many=True, 
+            context={'request': request}
+        )
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def orphaned(self, request):
+        """
+        Find orphaned media files (not attached to any object)
+        """
+        orphaned_media = []
+        
+        for media in Media.objects.all():
+            try:
+                # Try to access the content object
+                if not media.content_object:
+                    orphaned_media.append(media)
+            except:
+                orphaned_media.append(media)
+        
+        serializer = MediaListSerializer(
+            orphaned_media, 
+            many=True, 
+            context={'request': request}
+        )
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['delete'], permission_classes=[IsAuthenticated])
+    def cleanup_orphaned(self, request):
+        """
+        Delete orphaned media files
+        """
+        deleted_count = MediaService.cleanup_orphaned_media()
+        return Response({
+            'message': f'Deleted {deleted_count} orphaned media files',
+            'deleted_count': deleted_count
+        })
+    
+    @action(detail=False, methods=['post'])
+    def search(self, request):
+        """
+        Advanced search for media files
+        """
+        search_serializer = MediaSearchSerializer(data=request.data)
+        if search_serializer.is_valid():
+            results = MediaService.search_media(search_serializer.validated_data)
+            serializer = MediaListSerializer(
+                results, 
+                many=True, 
+                context={'request': request}
+            )
+            return Response(serializer.data)
+        return Response(search_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    def optimize(self, request, pk=None):
+        """
+        Optimize media file (compress images, etc.)
+        """
+        media = self.get_object()
+        
+        processor = MediaProcessor()
+        result = processor.optimize_media(media)
+        
+        if result['success']:
+            # Refresh from database to get updated file info
+            media.refresh_from_db()
+            serializer = MediaSerializer(media, context={'request': request})
+            return Response({
+                'message': 'Media optimized successfully',
+                'optimization_result': result,
+                'media': serializer.data
+            })
+        else:
+            return Response(
+                {'error': result['error']},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    
+    @action(detail=False, methods=['get'])
+    def content_types(self, request):
+        """
+        Get available content types that can have media
+        """
+        # Get content types that are commonly used with media
+        media_content_types = [
+            'articles.article',
+            'packages.package', 
+            'cities.city'
+        ]
+        
+        content_types = []
+        for ct_string in media_content_types:
+            try:
+                app_label, model = ct_string.split('.')
+                ct = ContentType.objects.get(app_label=app_label, model=model)
+                content_types.append({
+                    'id': ct.id,
+                    'app_label': ct.app_label,
+                    'model': ct.model,
+                    'name': ct.name,
+                    'media_count': Media.objects.filter(content_type=ct).count()
+                })
+            except (ValueError, ContentType.DoesNotExist):
+                continue
+        
+        return Response(content_types)
+
+class MediaToolsViewSet(viewsets.ViewSet):
+    """
+    Additional media tools and utilities
+    """
+    permission_classes = [IsAuthenticatedOrReadOnly]
+    
+    @action(detail=False, methods=['post'])
+    def validate_file(self, request):
+        """
+        Validate a file before upload
+        """
+        file = request.FILES.get('file')
+        if not file:
+            return Response(
+                {'error': 'No file provided'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        validator = MediaValidator()
+        try:
+            validation_result = validator.validate_file(file)
+            return Response({
+                'valid': True,
+                'file_info': validation_result
+            })
+        except Exception as e:
+            return Response({
+                'valid': False,
+                'error': str(e)
+            })
+    
+    @action(detail=False, methods=['get'])
+    def storage_info(self, request):
+        """
+        Get storage information and usage
+        """
+        storage_info = MediaService.get_storage_info()
+        return Response(storage_info)
+    
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
+    def cleanup_unused(self, request):
+        """
+        Clean up unused media files from storage
+        """
+        cleanup_result = MediaService.cleanup_unused_files()
+        return Response(cleanup_result)

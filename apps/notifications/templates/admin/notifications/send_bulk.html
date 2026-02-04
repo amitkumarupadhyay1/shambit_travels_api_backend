@@ -1,0 +1,42 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static admin_modify %}
+
+{% block title %}Send Bulk Notification{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">Home</a>
+    &rsaquo; <a href="{% url 'admin:notifications_notification_changelist' %}">Notifications</a>
+    &rsaquo; Send Bulk Notification
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="module aligned">
+    <h1>Send Bulk Notification</h1>
+    <p>Send a notification to {{ user_count }} selected users.</p>
+    
+    <form method="post">
+        {% csrf_token %}
+        <fieldset class="module aligned">
+            <div class="form-row">
+                <div>
+                    <label for="id_title" class="required">Title:</label>
+                    <input type="text" name="title" id="id_title" class="vTextField" maxlength="255" required>
+                </div>
+            </div>
+            <div class="form-row">
+                <div>
+                    <label for="id_message" class="required">Message:</label>
+                    <textarea name="message" id="id_message" class="vLargeTextField" rows="10" cols="40" required></textarea>
+                </div>
+            </div>
+        </fieldset>
+        
+        <div class="submit-row">
+            <input type="submit" value="Send Notification" class="default" name="_send">
+            <a href="{% url 'admin:notifications_notification_changelist' %}" class="button cancel-link">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

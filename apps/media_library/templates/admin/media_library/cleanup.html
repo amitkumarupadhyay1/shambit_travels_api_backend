@@ -1,0 +1,101 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static %}
+
+{% block title %}Media Cleanup{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">Home</a>
+    &rsaquo; <a href="{% url 'admin:media_library_media_changelist' %}">Media</a>
+    &rsaquo; Cleanup
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="module">
+    <h1>Media Cleanup</h1>
+    <p>Clean up orphaned and unused media files to free up storage space.</p>
+    
+    <!-- Cleanup Options -->
+    <div class="module">
+        <h2>Cleanup Options</h2>
+        
+        <div style="margin-bottom: 20px; padding: 15px; background: #fff3cd; border-left: 4px solid #ffc107;">
+            <h3>Orphaned Media Files</h3>
+            <p>Media files that are no longer attached to any existing object.</p>
+            <p><strong>Found:</strong> {{ orphaned_count }} orphaned files</p>
+            
+            {% if orphaned_count > 0 %}
+            <form method="post" style="display: inline;">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="cleanup_orphaned">
+                <input type="submit" value="Clean Up Orphaned Files" class="button" 
+                       onclick="return confirm('Are you sure you want to delete {{ orphaned_count }} orphaned media files? This action cannot be undone.');">
+            </form>
+            {% else %}
+            <p style="color: green; font-weight: bold;">✓ No orphaned files found!</p>
+            {% endif %}
+        </div>
+        
+        <div style="margin-bottom: 20px; padding: 15px; background: #d1ecf1; border-left: 4px solid #bee5eb;">
+            <h3>Unused Storage Files</h3>
+            <p>Files in the media storage directory that are not referenced in the database.</p>
+            <p><em>Note: This will scan the entire media directory and may take some time.</em></p>
+            
+            <form method="post" style="display: inline;">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="cleanup_unused">
+                <input type="submit" value="Clean Up Unused Files" class="button" 
+                       onclick="return confirm('Are you sure you want to clean up unused files from storage? This will permanently delete files that are not referenced in the database.');">
+            </form>
+        </div>
+    </div>
+    
+    <!-- Safety Information -->
+    <div class="module">
+        <h2>Safety Information</h2>
+        <div style="padding: 15px; background: #f8d7da; border-left: 4px solid #f5c6cb;">
+            <h4>⚠️ Important Notes:</h4>
+            <ul>
+                <li><strong>Backup First:</strong> Always backup your media files before running cleanup operations.</li>
+                <li><strong>Irreversible:</strong> Deleted files cannot be recovered through the admin interface.</li>
+                <li><strong>Orphaned Files:</strong> Files are considered orphaned if their associated object no longer exists.</li>
+                <li><strong>Unused Files:</strong> Files in storage that are not referenced in the database will be deleted.</li>
+                <li><strong>Thumbnails:</strong> Generated thumbnails may also be cleaned up if they're not referenced.</li>
+            </ul>
+        </div>
+    </div>
+    
+    <!-- Alternative Actions -->
+    <div class="module">
+        <h2>Alternative Actions</h2>
+        <div class="submit-row">
+            <a href="{% url 'admin:media_dashboard' %}" class="button">Media Dashboard</a>
+            <a href="{% url 'admin:media_library_media_changelist' %}" class="button">Back to Media List</a>
+        </div>
+    </div>
+</div>
+
+<script>
+// Add confirmation dialogs for safety
+document.addEventListener('DOMContentLoaded', function() {
+    const cleanupButtons = document.querySelectorAll('input[type="submit"]');
+    cleanupButtons.forEach(button => {
+        button.addEventListener('click', function(e) {
+            const action = this.previousElementSibling.value;
+            let message = '';
+            
+            if (action === 'cleanup_orphaned') {
+                message = 'This will permanently delete {{ orphaned_count }} orphaned media files. Continue?';
+            } else if (action === 'cleanup_unused') {
+                message = 'This will scan storage and delete unused files. This may take some time. Continue?';
+            }
+            
+            if (message && !confirm(message)) {
+                e.preventDefault();
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

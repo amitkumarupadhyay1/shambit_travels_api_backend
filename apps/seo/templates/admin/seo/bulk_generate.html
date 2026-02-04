@@ -1,0 +1,70 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static %}
+
+{% block title %}Bulk Generate SEO Data{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">Home</a>
+    &rsaquo; <a href="{% url 'admin:seo_seodata_changelist' %}">SEO Data</a>
+    &rsaquo; Bulk Generate
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="module">
+    <h1>Bulk Generate SEO Data</h1>
+    <p>Generate SEO data for objects that are missing it.</p>
+    
+    {% if content_types %}
+    <form method="post">
+        {% csrf_token %}
+        <fieldset class="module aligned">
+            <div class="form-row">
+                <div>
+                    <label for="id_content_type" class="required">Content Type:</label>
+                    <select name="content_type" id="id_content_type" required>
+                        <option value="">Select content type...</option>
+                        {% for ct in content_types %}
+                        <option value="{{ ct.name }}">
+                            {{ ct.name }} ({{ ct.missing_count }} missing)
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <p class="help">Choose the content type to generate SEO data for.</p>
+                </div>
+            </div>
+        </fieldset>
+        
+        <div class="submit-row">
+            <input type="submit" value="Generate SEO Data" class="default" name="_generate">
+            <a href="{% url 'admin:seo_seodata_changelist' %}" class="button cancel-link">Cancel</a>
+        </div>
+    </form>
+    
+    <div class="module" style="margin-top: 20px;">
+        <h2>What will be generated?</h2>
+        <ul>
+            <li><strong>Title:</strong> Auto-generated from object name/title</li>
+            <li><strong>Description:</strong> Extracted from object description/content</li>
+            <li><strong>Keywords:</strong> Generated based on object content and location</li>
+            <li><strong>Open Graph:</strong> Basic OG tags using title and description</li>
+            <li><strong>Structured Data:</strong> JSON-LD schema appropriate for content type</li>
+        </ul>
+        
+        <p><strong>Note:</strong> Generated SEO data can be edited later in the admin interface.</p>
+    </div>
+    
+    {% else %}
+    <div class="module">
+        <p style="color: green; font-weight: bold;">✓ All objects have SEO data!</p>
+        <p>No objects were found that are missing SEO data.</p>
+        
+        <div class="submit-row">
+            <a href="{% url 'admin:seo_seodata_changelist' %}" class="button">Back to SEO Data</a>
+            <a href="{% url 'admin:seo_dashboard' %}" class="button">SEO Dashboard</a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
