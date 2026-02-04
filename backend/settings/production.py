@@ -1,23 +1,25 @@
 from .base import *
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = os.environ.get("DEBUG", "False") == "True"
 
-# Database settings for production
+# Railway specific settings
+ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "*").split(",")
+if "RAILWAY_STATIC_URL" in os.environ:
+    ALLOWED_HOSTS.append(
+        os.environ["RAILWAY_STATIC_URL"].replace("https://", "").replace("http://", "")
+    )
+
+# Use PORT from Railway
+PORT = os.environ.get("PORT", "8000")
+
+# Database settings for production - Railway PostgreSQL
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.environ.get("DB_NAME", "travel_platform_prod"),
-        "USER": os.environ.get("DB_USER", "travel_user_prod"),
-        "PASSWORD": os.environ.get("DB_PASSWORD", "travel_password_prod"),
-        "HOST": os.environ.get("DB_HOST", "localhost"),
-        "PORT": os.environ.get("DB_PORT", "5432"),
-        "CONN_MAX_AGE": 600,
-        "OPTIONS": {
-            "sslmode": "require",
-            "connect_timeout": 10,
-        },
-    }
+    "default": dj_database_url.config(
+        default=os.environ.get("DATABASE_URL"),
+        conn_max_age=600,
+        conn_health_checks=True,
+    )
 }
 
 # Email settings for production
@@ -29,22 +31,33 @@ EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
 EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "True") == "True"
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "noreply@travelplatform.com")
 
-# CORS settings for production
+# CORS settings for production - Railway
 CORS_ALLOWED_ORIGINS = [
     "https://yourdomain.com",
     "https://www.yourdomain.com",
 ]
 
-# Security settings for production
-SECURE_SSL_REDIRECT = True
+# Add Railway domain when available
+if "RAILWAY_STATIC_URL" in os.environ:
+    CORS_ALLOWED_ORIGINS.append(os.environ["RAILWAY_STATIC_URL"])
+
+CORS_ALLOW_ALL_ORIGINS = os.environ.get("CORS_ALLOW_ALL_ORIGINS", "False") == "True"
+
+# Security settings for production - Railway
+SECURE_SSL_REDIRECT = os.environ.get("SECURE_SSL_REDIRECT", "True") == "True"
 SECURE_HSTS_SECONDS = 31536000
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_BROWSER_XSS_FILTER = True
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = os.environ.get("SESSION_COOKIE_SECURE", "True") == "True"
+CSRF_COOKIE_SECURE = os.environ.get("CSRF_COOKIE_SECURE", "True") == "True"
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# Static files for Railway
+STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 # Logging settings for production
 LOGGING = {
