@@ -40,14 +40,14 @@ CORS_ALLOWED_ORIGINS = [
 # Add Railway domain when available
 if "RAILWAY_STATIC_URL" in os.environ:
     railway_url = os.environ["RAILWAY_STATIC_URL"]
-    if not railway_url.startswith(('http://', 'https://')):
+    if not railway_url.startswith(("http://", "https://")):
         railway_url = f"https://{railway_url}"
     CORS_ALLOWED_ORIGINS.append(railway_url)
 
 # Add Railway public URL if available
 if "RAILWAY_PUBLIC_DOMAIN" in os.environ:
     public_domain = os.environ["RAILWAY_PUBLIC_DOMAIN"]
-    if not public_domain.startswith(('http://', 'https://')):
+    if not public_domain.startswith(("http://", "https://")):
         public_domain = f"https://{public_domain}"
     CORS_ALLOWED_ORIGINS.append(public_domain)
 

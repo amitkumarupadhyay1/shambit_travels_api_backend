@@ -117,8 +117,9 @@ def template_integration_example():
     """
     Example of how to use SEO data in Django templates
     """
-    from articles.models import Article
     from django.shortcuts import get_object_or_404, render
+
+    from articles.models import Article
 
     from .models import SEOData
 

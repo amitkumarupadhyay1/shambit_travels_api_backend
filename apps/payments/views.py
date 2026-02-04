@@ -1,10 +1,11 @@
 import json
 import logging
 
-from bookings.services.booking_service import BookingService
 from django.db import transaction
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
+
+from bookings.services.booking_service import BookingService
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 

@@ -1,9 +1,10 @@
 import logging
 from decimal import Decimal
 
+from django.conf import settings
+
 import razorpay
 from bookings.models import Booking
-from django.conf import settings
 
 from ..models import Payment
 

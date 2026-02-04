@@ -1,9 +1,10 @@
 import logging
 import os
 
-import requests
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
+
+import requests
 from rest_framework_simplejwt.tokens import RefreshToken
 
 logger = logging.getLogger(__name__)

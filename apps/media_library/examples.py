@@ -313,8 +313,9 @@ def template_integration_example():
     """
     Example of using media in Django templates
     """
-    from cities.models import City
     from django.shortcuts import get_object_or_404, render
+
+    from cities.models import City
 
     def city_detail_view(request, slug):
         city = get_object_or_404(City, slug=slug)

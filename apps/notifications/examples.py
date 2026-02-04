@@ -119,8 +119,9 @@ def custom_notification_examples():
     def send_booking_reminders():
         from datetime import timedelta
 
-        from bookings.models import Booking
         from django.utils import timezone
+
+        from bookings.models import Booking
 
         # Find bookings starting in 7 days
         upcoming_date = timezone.now().date() + timedelta(days=7)

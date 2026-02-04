@@ -1,4 +1,5 @@
 from django.core.management.base import BaseCommand
+
 from media_library.services.media_service import MediaService
 from media_library.utils import MediaUtils
 
@@ -57,6 +58,7 @@ class Command(BaseCommand):
             from datetime import timedelta
 
             from django.utils import timezone
+
             from media_library.models import Media
 
             # Upload trends

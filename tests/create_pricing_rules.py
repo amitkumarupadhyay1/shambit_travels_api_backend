@@ -10,6 +10,7 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "backend.settings.local")
 django.setup()
 
 from django.utils import timezone
+
 from packages.models import Package
 from pricing_engine.models import PricingRule
 

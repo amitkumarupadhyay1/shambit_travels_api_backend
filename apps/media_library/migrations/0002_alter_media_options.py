@@ -6,12 +6,16 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('media_library', '0001_initial'),
+        ("media_library", "0001_initial"),
     ]
 
     operations = [
         migrations.AlterModelOptions(
-            name='media',
-            options={'ordering': ['-created_at'], 'verbose_name': 'Media', 'verbose_name_plural': 'Media'},
+            name="media",
+            options={
+                "ordering": ["-created_at"],
+                "verbose_name": "Media",
+                "verbose_name_plural": "Media",
+            },
         ),
     ]

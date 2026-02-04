@@ -1,5 +1,6 @@
-from cities.models import City
 from django.db import models
+
+from cities.models import City
 
 
 class Article(models.Model):

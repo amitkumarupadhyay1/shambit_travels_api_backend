@@ -1,9 +1,10 @@
 import json
 
-from bookings.models import Booking
-from cities.models import City
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
+
+from bookings.models import Booking
+from cities.models import City
 from packages.models import Experience, HotelTier, Package, TransportOption
 from rest_framework.test import APIClient, APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken

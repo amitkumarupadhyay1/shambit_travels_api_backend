@@ -1,4 +1,5 @@
 from django.core.management.base import BaseCommand
+
 from seo.models import SEOData
 from seo.services.seo_service import SEOService
 from seo.utils import SEOAnalyzer
