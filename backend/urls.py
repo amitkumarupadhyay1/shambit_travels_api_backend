@@ -2,6 +2,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.http import JsonResponse
+from django.shortcuts import redirect
 from django.urls import include, path
 
 from .swagger_views import (
@@ -37,12 +38,45 @@ def health_check(request):
         return JsonResponse({"status": "unhealthy", "error": str(e)}, status=500)
 
 
+def root_redirect(request):
+    """Redirect root URL to API documentation"""
+    return redirect("/api/docs/")
+
+
+def api_root(request):
+    """API root endpoint with available endpoints"""
+    return JsonResponse(
+        {
+            "message": "Welcome to Shambit Travels API",
+            "version": "1.0.0",
+            "endpoints": {
+                "health": "/health/",
+                "admin": "/admin/",
+                "api_docs": "/api/docs/",
+                "api_schema": "/api/schema/",
+                "auth": "/api/auth/",
+                "cities": "/api/cities/",
+                "articles": "/api/articles/",
+                "packages": "/api/packages/",
+                "bookings": "/api/bookings/",
+                "payments": "/api/payments/",
+                "notifications": "/api/notifications/",
+                "seo": "/api/seo/",
+                "media": "/api/media/",
+                "pricing": "/api/pricing/",
+            },
+        }
+    )
+
+
 # Customize admin site
 admin.site.site_header = "Travel Platform Admin"
 admin.site.site_title = "Travel Platform"
 admin.site.index_title = "Welcome to Travel Platform Administration"
 
 urlpatterns = [
+    path("", root_redirect, name="root"),
+    path("api/", api_root, name="api-root"),
     path("health/", health_check, name="health-check"),
     path(
         "api/health/", health_check, name="api-health-check"

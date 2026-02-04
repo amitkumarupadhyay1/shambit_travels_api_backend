@@ -14,13 +14,26 @@ if "RAILWAY_STATIC_URL" in os.environ:
 PORT = os.environ.get("PORT", "8000")
 
 # Database settings for production - Railway PostgreSQL
-DATABASES = {
-    "default": dj_database_url.config(
-        default=os.environ.get("DATABASE_URL"),
-        conn_max_age=600,
-        conn_health_checks=True,
+if os.environ.get("DATABASE_URL"):
+    DATABASES = {
+        "default": dj_database_url.config(
+            default=os.environ.get("DATABASE_URL"),
+            conn_max_age=600,
+            conn_health_checks=True,
+        )
+    }
+else:
+    # Fallback configuration - warn but don't crash
+    import logging
+
+    logging.warning(
+        "No DATABASE_URL environment variable set, and so no databases setup"
     )
-}
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.dummy",
+        }
+    }
 
 # Email settings for production
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
