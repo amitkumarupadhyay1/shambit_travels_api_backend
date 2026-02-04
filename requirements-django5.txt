@@ -21,7 +21,7 @@ django-axes==5.26.0
 django-silk==5.0.1
 django-debug-toolbar==4.1.0
 django-extensions==3.2.1
-werkzeug==3.1.0
+werkzeug==3.1.5
 django-redis==5.4.0
 celery==5.3.4
 redis==5.0.1
