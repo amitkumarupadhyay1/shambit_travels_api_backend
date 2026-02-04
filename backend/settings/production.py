@@ -39,7 +39,17 @@ CORS_ALLOWED_ORIGINS = [
 
 # Add Railway domain when available
 if "RAILWAY_STATIC_URL" in os.environ:
-    CORS_ALLOWED_ORIGINS.append(os.environ["RAILWAY_STATIC_URL"])
+    railway_url = os.environ["RAILWAY_STATIC_URL"]
+    if not railway_url.startswith(('http://', 'https://')):
+        railway_url = f"https://{railway_url}"
+    CORS_ALLOWED_ORIGINS.append(railway_url)
+
+# Add Railway public URL if available
+if "RAILWAY_PUBLIC_DOMAIN" in os.environ:
+    public_domain = os.environ["RAILWAY_PUBLIC_DOMAIN"]
+    if not public_domain.startswith(('http://', 'https://')):
+        public_domain = f"https://{public_domain}"
+    CORS_ALLOWED_ORIGINS.append(public_domain)
 
 CORS_ALLOW_ALL_ORIGINS = os.environ.get("CORS_ALLOW_ALL_ORIGINS", "False") == "True"
 
@@ -58,6 +68,12 @@ SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+
+# Ensure static directory exists
+STATICFILES_DIRS = []
+static_dir = BASE_DIR / "static"
+if static_dir.exists():
+    STATICFILES_DIRS = [static_dir]
 
 # Logging settings for production
 LOGGING = {

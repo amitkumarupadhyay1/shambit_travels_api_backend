@@ -25,8 +25,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy project
 COPY . /app/
 
-# Create logs directory
-RUN mkdir -p /app/logs
+# Create logs and static directories
+RUN mkdir -p /app/logs /app/static
 
 # Create non-root user
 RUN adduser --disabled-password --gecos '' appuser \
