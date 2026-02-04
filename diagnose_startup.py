@@ -2,13 +2,15 @@
 """
 Diagnostic script to test Django startup and health check
 """
+
 import os
 import sys
+
 import django
 from django.conf import settings
 
 # Set up Django environment
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'backend.settings.production')
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "backend.settings.production")
 
 try:
     django.setup()
@@ -20,6 +22,7 @@ except Exception as e:
 # Test database connection
 try:
     from django.db import connection
+
     with connection.cursor() as cursor:
         cursor.execute("SELECT 1")
     print("✅ Database connection successful")
@@ -29,12 +32,13 @@ except Exception as e:
 # Test health check endpoint
 try:
     from django.test import RequestFactory
+
     from backend.urls import health_check
-    
+
     factory = RequestFactory()
-    request = factory.get('/health/')
+    request = factory.get("/health/")
     response = health_check(request)
-    
+
     print(f"✅ Health check endpoint status: {response.status_code}")
     print(f"✅ Health check response: {response.content.decode()}")
 except Exception as e:
