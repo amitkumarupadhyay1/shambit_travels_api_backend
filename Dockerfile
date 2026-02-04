@@ -36,9 +36,6 @@ RUN adduser --disabled-password --gecos '' appuser \
     && chown -R appuser:appuser /app
 USER appuser
 
-# Collect static files
-RUN python manage.py collectstatic --noinput
-
 # Expose port (Railway will set PORT env var)
 EXPOSE $PORT
 
