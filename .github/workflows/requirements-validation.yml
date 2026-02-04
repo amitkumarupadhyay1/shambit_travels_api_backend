@@ -1,0 +1,95 @@
+name: Requirements Validation
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'requirements*.txt'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'requirements*.txt'
+  workflow_dispatch:
+
+jobs:
+  validate-requirements:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.11', '3.12']
+        requirements-file: 
+          - 'requirements.txt'
+          - 'requirements-stable.txt'
+          - 'requirements-django5.txt'
+          - 'requirements-pinned.txt'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Cache pip dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles(matrix.requirements-file) }}
+        restore-keys: |
+          ${{ runner.os }}-pip-${{ matrix.python-version }}-
+    
+    - name: Validate requirements file exists
+      run: |
+        if [ ! -f "${{ matrix.requirements-file }}" ]; then
+          echo "⚠️ ${{ matrix.requirements-file }} not found, skipping..."
+          exit 0
+        fi
+        echo "✅ ${{ matrix.requirements-file }} found"
+    
+    - name: Test requirements compatibility (dry-run)
+      run: |
+        if [ -f "${{ matrix.requirements-file }}" ]; then
+          echo "Testing ${{ matrix.requirements-file }} with Python ${{ matrix.python-version }}..."
+          python -m pip install --upgrade pip
+          pip install --dry-run -r ${{ matrix.requirements-file }}
+          echo "✅ ${{ matrix.requirements-file }} is compatible with Python ${{ matrix.python-version }}"
+        fi
+    
+    - name: Test actual installation
+      run: |
+        if [ -f "${{ matrix.requirements-file }}" ]; then
+          echo "Installing ${{ matrix.requirements-file }}..."
+          pip install -r ${{ matrix.requirements-file }}
+          echo "✅ ${{ matrix.requirements-file }} installed successfully"
+        fi
+    
+    - name: Test Django compatibility
+      run: |
+        if [ -f "${{ matrix.requirements-file }}" ]; then
+          echo "Testing Django import..."
+          python -c "import django; print(f'Django version: {django.get_version()}')"
+          echo "✅ Django imports successfully"
+        fi
+    
+    - name: Generate compatibility report
+      run: |
+        if [ -f "${{ matrix.requirements-file }}" ]; then
+          echo "## Compatibility Report" >> $GITHUB_STEP_SUMMARY
+          echo "- **Requirements File**: ${{ matrix.requirements-file }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Python Version**: ${{ matrix.python-version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ✅ Compatible" >> $GITHUB_STEP_SUMMARY
+          echo "- **Django Version**: $(python -c 'import django; print(django.get_version())')" >> $GITHUB_STEP_SUMMARY
+        fi
+
+  requirements-summary:
+    needs: validate-requirements
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+    - name: Requirements validation summary
+      run: |
+        echo "## Requirements Validation Summary" >> $GITHUB_STEP_SUMMARY
+        echo "All requirements files have been tested across multiple Python versions." >> $GITHUB_STEP_SUMMARY
+        echo "Check individual job results for detailed compatibility information." >> $GITHUB_STEP_SUMMARY

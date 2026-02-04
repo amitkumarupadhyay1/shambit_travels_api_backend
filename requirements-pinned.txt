@@ -1,5 +1,5 @@
-# Requirements with Django 5.x (requires Python 3.10+)
-Django==5.1.4
+# Pinned requirements for maximum stability and reproducibility
+Django==4.2.16
 djangorestframework==3.15.2
 django-cors-headers==4.3.1
 python-decouple==3.8
@@ -27,18 +27,18 @@ celery==5.3.4
 redis==5.0.1
 django-celery-beat==2.8.0
 django-celery-results==2.5.0
-django-guardian>=3.2.0
-django-model-utils>=4.5.0
-django-taggit>=5.0.0
-django-taggit-serializer>=0.1.7
-django-templated-mail>=0.1.0
-djoser>=2.9.0
-drf-yasg>=1.21.4
-drf-spectacular>=0.27.4
-drf-spectacular-sidecar>=0.21.0
-django-restql>=0.14.0
-django-allauth>=0.63.0
-django-oauth-toolkit>=3.0.0
-social-auth-app-django>=5.4.0
-social-auth-core>=4.5.0
+django-guardian==3.2.0
+django-model-utils==5.0.0
+django-taggit==6.1.0
+django-taggit-serializer==0.1.7
+django-templated-mail==0.1.0
+djoser==2.9.0
+drf-yasg==1.21.4
+drf-spectacular==0.27.4
+drf-spectacular-sidecar==0.21.0
+django-restql==0.14.0
+django-allauth==0.63.0
+django-oauth-toolkit==3.0.0
+social-auth-app-django==5.4.0
+social-auth-core==4.5.0
 razorpay==1.3.0
