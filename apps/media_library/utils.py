@@ -3,7 +3,8 @@ import os
 from typing import Any, Dict, Optional, Tuple
 
 from django.conf import settings
-from django.core.files.uploadedfile import InMemoryUploadedFile, TemporaryUploadedFile
+from django.core.files.uploadedfile import (InMemoryUploadedFile,
+                                            TemporaryUploadedFile)
 from PIL import Image, ImageOps
 
 from .models import Media
