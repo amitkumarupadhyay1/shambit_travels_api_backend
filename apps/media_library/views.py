@@ -11,16 +11,21 @@ from PIL import Image
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
-from rest_framework.permissions import (IsAuthenticated,
-                                        IsAuthenticatedOrReadOnly)
+from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 
 from .models import Media
-from .serializers import (ContentTypeMediaSerializer, MediaBulkSerializer,
-                          MediaGallerySerializer, MediaListSerializer,
-                          MediaSearchSerializer, MediaSerializer,
-                          MediaStatsSerializer, MediaUpdateSerializer,
-                          MediaUploadSerializer)
+from .serializers import (
+    ContentTypeMediaSerializer,
+    MediaBulkSerializer,
+    MediaGallerySerializer,
+    MediaListSerializer,
+    MediaSearchSerializer,
+    MediaSerializer,
+    MediaStatsSerializer,
+    MediaUpdateSerializer,
+    MediaUploadSerializer,
+)
 from .services.media_service import MediaService
 from .utils import MediaProcessor, MediaValidator
 

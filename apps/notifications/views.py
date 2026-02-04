@@ -8,10 +8,13 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from .models import Notification
-from .serializers import (NotificationCreateSerializer,
-                          NotificationListSerializer, NotificationSerializer,
-                          NotificationStatsSerializer,
-                          NotificationUpdateSerializer)
+from .serializers import (
+    NotificationCreateSerializer,
+    NotificationListSerializer,
+    NotificationSerializer,
+    NotificationStatsSerializer,
+    NotificationUpdateSerializer,
+)
 
 
 class NotificationViewSet(viewsets.ModelViewSet):

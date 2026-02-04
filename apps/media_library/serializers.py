@@ -1,8 +1,7 @@
 import os
 
 from django.contrib.contenttypes.models import ContentType
-from django.core.files.uploadedfile import (InMemoryUploadedFile,
-                                            TemporaryUploadedFile)
+from django.core.files.uploadedfile import InMemoryUploadedFile, TemporaryUploadedFile
 from PIL import Image
 from rest_framework import serializers
 
