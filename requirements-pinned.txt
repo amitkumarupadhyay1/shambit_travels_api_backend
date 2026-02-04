@@ -1,6 +1,6 @@
 # Pinned requirements for maximum stability and reproducibility
 Django==4.2.16
-djangorestframework==3.15.2
+djangorestframework==3.16.1
 django-cors-headers==4.3.1
 python-decouple==3.8
 psycopg2-binary==2.9.9
