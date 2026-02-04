@@ -1,5 +1,9 @@
-from packages.serializers import (ExperienceSerializer, HotelTierSerializer,
-                                  PackageSerializer, TransportOptionSerializer)
+from packages.serializers import (
+    ExperienceSerializer,
+    HotelTierSerializer,
+    PackageSerializer,
+    TransportOptionSerializer,
+)
 from rest_framework import serializers
 
 from .models import Booking
@@ -61,8 +65,7 @@ class BookingCreateSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         """Validate all component IDs exist"""
-        from packages.models import (Experience, HotelTier, Package,
-                                     TransportOption)
+        from packages.models import Experience, HotelTier, Package, TransportOption
 
         experience_ids = data.get("selected_experience_ids", [])
         hotel_tier_id = data.get("hotel_tier_id")
