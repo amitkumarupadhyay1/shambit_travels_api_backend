@@ -1,11 +1,24 @@
 from django.db import models
 
 
+def city_image_upload_path(instance, filename):
+    """
+    Generate upload path for city images.
+    For Railway, we'll use a flat structure to avoid permission issues.
+    """
+    import os
+    # Get file extension
+    ext = os.path.splitext(filename)[1]
+    # Create a simple filename with city name
+    safe_name = instance.slug or instance.name.lower().replace(' ', '_')
+    return f"city_{safe_name}_hero{ext}"
+
+
 class City(models.Model):
     name = models.CharField(max_length=100, db_index=True)  # Frequently searched
     slug = models.SlugField(unique=True, db_index=True)  # Primary lookup field
     description = models.TextField()
-    hero_image = models.ImageField(upload_to="cities/hero/", null=True, blank=True)
+    hero_image = models.ImageField(upload_to=city_image_upload_path, null=True, blank=True)
     status = models.CharField(
         max_length=20,
         choices=[("DRAFT", "Draft"), ("PUBLISHED", "Published")],

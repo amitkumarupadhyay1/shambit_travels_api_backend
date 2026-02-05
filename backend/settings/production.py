@@ -107,10 +107,16 @@ if static_dir.exists():
 MEDIA_URL = "/media/"
 
 # Use Railway volume for persistent media storage
+# Media files for Railway - use volume for persistent storage
+MEDIA_URL = "/media/"
+
 if "RAILWAY_VOLUME_MOUNT_PATH" in os.environ:
     # Railway volume is mounted, use it directly (don't create subdirectory)
     MEDIA_ROOT = os.environ["RAILWAY_VOLUME_MOUNT_PATH"]
     print(f"📁 Using Railway volume for media: {MEDIA_ROOT}")
+    
+    # Use custom storage backend for Railway that handles permissions
+    DEFAULT_FILE_STORAGE = 'backend.storage_backends.RailwayFileSystemStorage'
 else:
     # Fallback to local media directory
     MEDIA_ROOT = BASE_DIR / "media"
