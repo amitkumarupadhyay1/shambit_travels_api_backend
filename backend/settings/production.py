@@ -103,13 +103,24 @@ static_dir = BASE_DIR / "static"
 if static_dir.exists():
     STATICFILES_DIRS = [static_dir]
 
-# Media files for Railway - serve directly since we don't have a CDN
+# Media files for Railway - use volume for persistent storage
 MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
+
+# Use Railway volume for persistent media storage
+if "RAILWAY_VOLUME_MOUNT_PATH" in os.environ:
+    # Railway volume is mounted, use it for media
+    MEDIA_ROOT = os.path.join(os.environ["RAILWAY_VOLUME_MOUNT_PATH"], "media")
+    print(f"📁 Using Railway volume for media: {MEDIA_ROOT}")
+else:
+    # Fallback to local media directory
+    MEDIA_ROOT = BASE_DIR / "media"
+    print(f"📁 Using local media directory: {MEDIA_ROOT}")
 
 # Ensure media directory exists
 import os
 os.makedirs(MEDIA_ROOT, exist_ok=True)
+print(f"📁 Media directory exists: {os.path.exists(MEDIA_ROOT)}")
+print(f"📁 Media directory contents: {os.listdir(MEDIA_ROOT) if os.path.exists(MEDIA_ROOT) else 'Directory not found'}")
 
 # Logging settings for production
 LOGGING = {
