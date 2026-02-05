@@ -108,22 +108,28 @@ MEDIA_URL = "/media/"
 
 # Use Railway volume for persistent media storage
 if "RAILWAY_VOLUME_MOUNT_PATH" in os.environ:
-    # Railway volume is mounted, use it for media
-    MEDIA_ROOT = os.path.join(os.environ["RAILWAY_VOLUME_MOUNT_PATH"], "media")
+    # Railway volume is mounted, use it directly (don't create subdirectory)
+    MEDIA_ROOT = os.environ["RAILWAY_VOLUME_MOUNT_PATH"]
     print(f"📁 Using Railway volume for media: {MEDIA_ROOT}")
 else:
     # Fallback to local media directory
     MEDIA_ROOT = BASE_DIR / "media"
     print(f"📁 Using local media directory: {MEDIA_ROOT}")
 
-# Ensure media directory exists
+# Only try to create directory if it doesn't exist and we have permission
 import os
-
-os.makedirs(MEDIA_ROOT, exist_ok=True)
-print(f"📁 Media directory exists: {os.path.exists(MEDIA_ROOT)}")
-print(
-    f"📁 Media directory contents: {os.listdir(MEDIA_ROOT) if os.path.exists(MEDIA_ROOT) else 'Directory not found'}"
-)
+try:
+    if not os.path.exists(MEDIA_ROOT):
+        os.makedirs(MEDIA_ROOT, exist_ok=True)
+    print(f"📁 Media directory exists: {os.path.exists(MEDIA_ROOT)}")
+    if os.path.exists(MEDIA_ROOT):
+        print(f"📁 Media directory contents: {os.listdir(MEDIA_ROOT)}")
+except PermissionError as e:
+    print(f"⚠️ Permission error creating media directory: {e}")
+    print(f"📁 Using existing directory: {MEDIA_ROOT}")
+except Exception as e:
+    print(f"⚠️ Error with media directory: {e}")
+    print(f"📁 Using directory as-is: {MEDIA_ROOT}")
 
 # Logging settings for production
 LOGGING = {
