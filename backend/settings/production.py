@@ -61,6 +61,7 @@ CORS_ALLOWED_ORIGINS = [
     "https://www.yourdomain.com",
     # Add your Railway frontend domain here - UPDATE THIS
     "https://shambit-frontend.up.railway.app",
+    "https://shambittravels.up.railway.app",
 ]
 
 # Add Railway domain when available
