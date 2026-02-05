@@ -118,9 +118,12 @@ else:
 
 # Ensure media directory exists
 import os
+
 os.makedirs(MEDIA_ROOT, exist_ok=True)
 print(f"📁 Media directory exists: {os.path.exists(MEDIA_ROOT)}")
-print(f"📁 Media directory contents: {os.listdir(MEDIA_ROOT) if os.path.exists(MEDIA_ROOT) else 'Directory not found'}")
+print(
+    f"📁 Media directory contents: {os.listdir(MEDIA_ROOT) if os.path.exists(MEDIA_ROOT) else 'Directory not found'}"
+)
 
 # Logging settings for production
 LOGGING = {
