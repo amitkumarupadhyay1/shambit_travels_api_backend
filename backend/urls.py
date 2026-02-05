@@ -117,3 +117,7 @@ if settings.DEBUG:
 else:
     # Serve media files in production (Railway doesn't have a separate media server)
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    
+    # Also serve from fallback location if needed
+    if os.path.exists("/tmp/media"):
+        urlpatterns += static("/media/", document_root="/tmp/media")

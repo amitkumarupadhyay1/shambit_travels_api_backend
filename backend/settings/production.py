@@ -111,9 +111,20 @@ MEDIA_URL = "/media/"
 MEDIA_URL = "/media/"
 
 if "RAILWAY_VOLUME_MOUNT_PATH" in os.environ:
-    # Railway volume is mounted, use it directly (don't create subdirectory)
-    MEDIA_ROOT = os.environ["RAILWAY_VOLUME_MOUNT_PATH"]
+    # Railway volume is mounted, but let's use a subdirectory we can control
+    volume_path = os.environ["RAILWAY_VOLUME_MOUNT_PATH"]
+    MEDIA_ROOT = os.path.join(volume_path, "uploads")
     print(f"📁 Using Railway volume for media: {MEDIA_ROOT}")
+    
+    # Try to create the uploads directory with specific permissions
+    try:
+        os.makedirs(MEDIA_ROOT, mode=0o777, exist_ok=True)
+        print(f"📁 Created uploads directory with 777 permissions")
+    except PermissionError:
+        # If we can't create uploads dir, fall back to /tmp
+        MEDIA_ROOT = "/tmp/railway-media"
+        os.makedirs(MEDIA_ROOT, mode=0o777, exist_ok=True)
+        print(f"📁 Using fallback media directory: {MEDIA_ROOT}")
     
     # Use custom storage backend for Railway that handles permissions
     DEFAULT_FILE_STORAGE = 'backend.storage_backends.RailwayFileSystemStorage'
@@ -122,20 +133,26 @@ else:
     MEDIA_ROOT = BASE_DIR / "media"
     print(f"📁 Using local media directory: {MEDIA_ROOT}")
 
-# Only try to create directory if it doesn't exist and we have permission
+# Debug volume permissions
 import os
+if "RAILWAY_VOLUME_MOUNT_PATH" in os.environ:
+    volume_path = os.environ["RAILWAY_VOLUME_MOUNT_PATH"]
+    try:
+        stat_info = os.stat(volume_path)
+        print(f"📁 Volume permissions: {oct(stat_info.st_mode)[-3:]}")
+        print(f"📁 Volume owner: {stat_info.st_uid}:{stat_info.st_gid}")
+        print(f"📁 Current process UID: {os.getuid()}")
+    except Exception as e:
+        print(f"📁 Cannot check volume permissions: {e}")
+
 try:
-    if not os.path.exists(MEDIA_ROOT):
-        os.makedirs(MEDIA_ROOT, exist_ok=True)
-    print(f"📁 Media directory exists: {os.path.exists(MEDIA_ROOT)}")
     if os.path.exists(MEDIA_ROOT):
+        print(f"📁 Media directory exists: True")
         print(f"📁 Media directory contents: {os.listdir(MEDIA_ROOT)}")
-except PermissionError as e:
-    print(f"⚠️ Permission error creating media directory: {e}")
-    print(f"📁 Using existing directory: {MEDIA_ROOT}")
+    else:
+        print(f"📁 Media directory exists: False")
 except Exception as e:
-    print(f"⚠️ Error with media directory: {e}")
-    print(f"📁 Using directory as-is: {MEDIA_ROOT}")
+    print(f"⚠️ Error checking media directory: {e}")
 
 # Logging settings for production
 LOGGING = {

@@ -2,8 +2,8 @@
 Custom storage backends for Railway deployment
 """
 import os
+import tempfile
 from django.core.files.storage import FileSystemStorage
-from django.conf import settings
 
 
 class RailwayFileSystemStorage(FileSystemStorage):
@@ -15,40 +15,38 @@ class RailwayFileSystemStorage(FileSystemStorage):
         """
         Override _save to handle permission issues on Railway volumes
         """
-        full_path = self.path(name)
-        
-        # Create directory with proper error handling
-        directory = os.path.dirname(full_path)
+        # Try the normal save first
         try:
-            if not os.path.exists(directory):
-                os.makedirs(directory, mode=0o755, exist_ok=True)
-        except PermissionError:
-            # If we can't create the directory, try to save in the root
-            print(f"⚠️ Cannot create directory {directory}, saving to root")
-            name = os.path.basename(name)
-            full_path = self.path(name)
-        
-        return super()._save(name, content)
+            return super()._save(name, content)
+        except PermissionError as e:
+            print(f"⚠️ Permission denied saving {name}: {e}")
+            
+            # Fallback: use /tmp directory which is always writable
+            fallback_root = "/tmp/media"
+            os.makedirs(fallback_root, exist_ok=True)
+            
+            # Create a new storage instance pointing to /tmp
+            fallback_storage = FileSystemStorage(location=fallback_root)
+            
+            # Save to fallback location
+            saved_name = fallback_storage._save(name, content)
+            print(f"📁 Saved to fallback location: {fallback_root}/{saved_name}")
+            
+            # Update our location to the fallback for future operations
+            self.location = fallback_root
+            
+            return saved_name
     
-    def get_available_name(self, name, max_length=None):
+    def url(self, name):
         """
-        Override to ensure we have a valid filename
+        Generate URL for the file
         """
-        # If we can't create subdirectories, flatten the path
-        if not self._can_create_directory(os.path.dirname(self.path(name))):
-            name = os.path.basename(name)
+        if not name:
+            return name
         
-        return super().get_available_name(name, max_length)
-    
-    def _can_create_directory(self, directory):
-        """
-        Check if we can create a directory
-        """
-        if os.path.exists(directory):
-            return True
+        # If we're using fallback location, we need to serve from there
+        if self.location == "/tmp/media":
+            # For now, return the media URL - we'll need to serve /tmp/media via Django
+            return f"{self.base_url}{name}"
         
-        try:
-            os.makedirs(directory, mode=0o755, exist_ok=True)
-            return True
-        except PermissionError:
-            return False
+        return super().url(name)
