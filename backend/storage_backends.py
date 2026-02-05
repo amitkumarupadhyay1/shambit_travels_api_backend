@@ -17,9 +17,16 @@ class RailwayFileSystemStorage(FileSystemStorage):
         """
         Override _save to handle permission issues on Railway volumes
         """
+        print(f"🔄 Attempting to save file: {name}")
+        print(f"📁 Storage location: {self.location}")
+        
         # Try the normal save first
         try:
-            return super()._save(name, content)
+            saved_name = super()._save(name, content)
+            full_path = self.path(saved_name)
+            print(f"✅ Successfully saved to: {full_path}")
+            print(f"📁 File exists: {os.path.exists(full_path)}")
+            return saved_name
         except PermissionError as e:
             print(f"⚠️ Permission denied saving {name}: {e}")
 
@@ -32,7 +39,9 @@ class RailwayFileSystemStorage(FileSystemStorage):
 
             # Save to fallback location
             saved_name = fallback_storage._save(name, content)
-            print(f"📁 Saved to fallback location: {fallback_root}/{saved_name}")
+            fallback_path = os.path.join(fallback_root, saved_name)
+            print(f"📁 Saved to fallback location: {fallback_path}")
+            print(f"📁 Fallback file exists: {os.path.exists(fallback_path)}")
 
             # Update our location to the fallback for future operations
             self.location = fallback_root
@@ -46,9 +55,7 @@ class RailwayFileSystemStorage(FileSystemStorage):
         if not name:
             return name
 
-        # If we're using fallback location, we need to serve from there
-        if self.location == "/tmp/media":
-            # For now, return the media URL - we'll need to serve /tmp/media via Django
-            return f"{self.base_url}{name}"
-
-        return super().url(name)
+        # Always use the standard media URL - our custom view will handle the lookup
+        url = f"/media/{name}"
+        print(f"🔗 Generated URL for {name}: {url}")
+        return url

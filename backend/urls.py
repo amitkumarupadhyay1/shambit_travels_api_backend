@@ -3,15 +3,36 @@ import os
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse, Http404
 from django.shortcuts import redirect
 from django.urls import include, path
+from django.views.static import serve
+import os
 
 from .swagger_views import (
     SecureSpectacularAPIView,
     SecureSpectacularRedocView,
     SecureSpectacularSwaggerView,
 )
+
+
+def serve_media(request, path):
+    """
+    Custom media serving view that handles multiple storage locations
+    """
+    # Try primary media location first
+    primary_path = os.path.join(settings.MEDIA_ROOT, path)
+    if os.path.exists(primary_path):
+        return serve(request, path, document_root=settings.MEDIA_ROOT)
+    
+    # Try fallback location
+    fallback_root = "/tmp/media"
+    fallback_path = os.path.join(fallback_root, path)
+    if os.path.exists(fallback_path):
+        return serve(request, path, document_root=fallback_root)
+    
+    # File not found in either location
+    raise Http404("Media file not found")
 
 
 def health_check(request):
@@ -106,20 +127,10 @@ urlpatterns = [
         SecureSpectacularRedocView.as_view(url_name="schema"),
         name="redoc",
     ),
+    # Custom media serving for Railway - handles multiple storage locations
+    path("media/<path:path>", serve_media, name="serve_media"),
 ]
 
+# Only add static file serving in debug mode
 if settings.DEBUG:
-    # import debug_toolbar
-    # urlpatterns = [
-    #     path('__debug__/', include(debug_toolbar.urls)),
-    # ] + urlpatterns
-
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
-else:
-    # Serve media files in production (Railway doesn't have a separate media server)
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-
-    # Also serve from fallback location if needed
-    if os.path.exists("/tmp/media"):
-        urlpatterns += static("/media/", document_root="/tmp/media")
