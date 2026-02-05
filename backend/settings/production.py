@@ -59,6 +59,8 @@ DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "noreply@travelplatfor
 CORS_ALLOWED_ORIGINS = [
     "https://yourdomain.com",
     "https://www.yourdomain.com",
+    # Add your Railway frontend domain here - UPDATE THIS
+    "https://shambit-frontend.up.railway.app",
 ]
 
 # Add Railway domain when available
