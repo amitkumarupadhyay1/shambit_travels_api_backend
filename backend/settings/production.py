@@ -115,7 +115,7 @@ if "RAILWAY_VOLUME_MOUNT_PATH" in os.environ:
     volume_path = os.environ["RAILWAY_VOLUME_MOUNT_PATH"]
     MEDIA_ROOT = os.path.join(volume_path, "uploads")
     print(f"📁 Using Railway volume for media: {MEDIA_ROOT}")
-    
+
     # Try to create the uploads directory with specific permissions
     try:
         os.makedirs(MEDIA_ROOT, mode=0o777, exist_ok=True)
@@ -125,9 +125,9 @@ if "RAILWAY_VOLUME_MOUNT_PATH" in os.environ:
         MEDIA_ROOT = "/tmp/railway-media"
         os.makedirs(MEDIA_ROOT, mode=0o777, exist_ok=True)
         print(f"📁 Using fallback media directory: {MEDIA_ROOT}")
-    
+
     # Use custom storage backend for Railway that handles permissions
-    DEFAULT_FILE_STORAGE = 'backend.storage_backends.RailwayFileSystemStorage'
+    DEFAULT_FILE_STORAGE = "backend.storage_backends.RailwayFileSystemStorage"
 else:
     # Fallback to local media directory
     MEDIA_ROOT = BASE_DIR / "media"
@@ -135,6 +135,7 @@ else:
 
 # Debug volume permissions
 import os
+
 if "RAILWAY_VOLUME_MOUNT_PATH" in os.environ:
     volume_path = os.environ["RAILWAY_VOLUME_MOUNT_PATH"]
     try:
