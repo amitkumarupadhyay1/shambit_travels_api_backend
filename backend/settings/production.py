@@ -103,6 +103,14 @@ static_dir = BASE_DIR / "static"
 if static_dir.exists():
     STATICFILES_DIRS = [static_dir]
 
+# Media files for Railway - serve directly since we don't have a CDN
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
+# Ensure media directory exists
+import os
+os.makedirs(MEDIA_ROOT, exist_ok=True)
+
 # Logging settings for production
 LOGGING = {
     "version": 1,
