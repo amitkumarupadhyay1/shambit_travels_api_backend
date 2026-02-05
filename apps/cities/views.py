@@ -1,10 +1,59 @@
+from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiExample, OpenApiParameter, extend_schema
+from rest_framework import filters, generics
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import City
-from .serializers import CityContextSerializer
+from .serializers import CityContextSerializer, CitySerializer
+
+
+class CityListView(generics.ListAPIView):
+    """
+    List all published cities
+    """
+
+    queryset = City.objects.filter(status="PUBLISHED").order_by("name")
+    serializer_class = CitySerializer
+    permission_classes = []  # Allow public access
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
+    filterset_fields = ["name"]
+    search_fields = ["name", "description"]
+    ordering_fields = ["name", "created_at"]
+    ordering = ["name"]
+
+    @extend_schema(
+        operation_id="list_cities",
+        summary="List all cities",
+        description="Retrieve a list of all published cities available for travel packages.",
+        tags=["Cities"],
+    )
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+
+class CityDetailView(generics.RetrieveAPIView):
+    """
+    Retrieve a specific city by ID
+    """
+
+    queryset = City.objects.filter(status="PUBLISHED")
+    serializer_class = CitySerializer
+    permission_classes = []  # Allow public access
+
+    @extend_schema(
+        operation_id="get_city",
+        summary="Get city details",
+        description="Retrieve details of a specific city by ID.",
+        tags=["Cities"],
+    )
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
 
 
 class CityContextView(APIView):

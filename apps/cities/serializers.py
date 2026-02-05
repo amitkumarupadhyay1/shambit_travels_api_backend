@@ -6,6 +6,24 @@ from rest_framework import serializers
 from .models import City, Highlight, TravelTip
 
 
+class CitySerializer(serializers.ModelSerializer):
+    """Simple city serializer for list views"""
+
+    class Meta:
+        model = City
+        fields = [
+            "id",
+            "name",
+            "slug",
+            "description",
+            "hero_image",
+            "meta_title",
+            "meta_description",
+            "created_at",
+            "updated_at",
+        ]
+
+
 class HighlightSerializer(serializers.ModelSerializer):
     class Meta:
         model = Highlight
