@@ -19,7 +19,7 @@ class RailwayFileSystemStorage(FileSystemStorage):
         """
         print(f"🔄 Attempting to save file: {name}")
         print(f"📁 Storage location: {self.location}")
-        
+
         # Try the normal save first
         try:
             saved_name = super()._save(name, content)

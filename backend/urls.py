@@ -3,11 +3,10 @@ import os
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
-from django.http import JsonResponse, HttpResponse, Http404
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import redirect
 from django.urls import include, path
 from django.views.static import serve
-import os
 
 from .swagger_views import (
     SecureSpectacularAPIView,
@@ -24,13 +23,13 @@ def serve_media(request, path):
     primary_path = os.path.join(settings.MEDIA_ROOT, path)
     if os.path.exists(primary_path):
         return serve(request, path, document_root=settings.MEDIA_ROOT)
-    
+
     # Try fallback location
     fallback_root = "/tmp/media"
     fallback_path = os.path.join(fallback_root, path)
     if os.path.exists(fallback_path):
         return serve(request, path, document_root=fallback_root)
-    
+
     # File not found in either location
     raise Http404("Media file not found")
 
