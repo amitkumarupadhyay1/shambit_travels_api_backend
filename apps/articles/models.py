@@ -13,6 +13,9 @@ class Article(models.Model):
     author = models.CharField(
         max_length=100, blank=True, db_index=True
     )  # Frequently filtered
+    featured_image = models.ImageField(
+        upload_to="articles/", blank=True, null=True
+    )  # Featured image for article
 
     status = models.CharField(
         max_length=20,

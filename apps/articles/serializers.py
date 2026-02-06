@@ -6,6 +6,7 @@ from .models import Article
 class ArticleListSerializer(serializers.ModelSerializer):
     city_name = serializers.CharField(source="city.name", read_only=True)
     excerpt = serializers.SerializerMethodField()
+    featured_image = serializers.ImageField(read_only=True)
 
     class Meta:
         model = Article
@@ -16,6 +17,7 @@ class ArticleListSerializer(serializers.ModelSerializer):
             "excerpt",
             "author",
             "city_name",
+            "featured_image",
             "meta_title",
             "meta_description",
             "created_at",
@@ -30,6 +32,7 @@ class ArticleListSerializer(serializers.ModelSerializer):
 class ArticleSerializer(serializers.ModelSerializer):
     city_name = serializers.CharField(source="city.name", read_only=True)
     city_slug = serializers.CharField(source="city.slug", read_only=True)
+    featured_image = serializers.ImageField(read_only=True)
 
     class Meta:
         model = Article
@@ -41,6 +44,7 @@ class ArticleSerializer(serializers.ModelSerializer):
             "author",
             "city_name",
             "city_slug",
+            "featured_image",
             "meta_title",
             "meta_description",
             "created_at",
