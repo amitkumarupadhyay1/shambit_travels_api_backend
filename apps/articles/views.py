@@ -21,10 +21,13 @@ class ArticleViewSet(viewsets.ModelViewSet):
         # Optimized queryset with select_related for ForeignKey relationships
         queryset = Article.objects.select_related("city").filter(status="PUBLISHED")
 
-        city_slug = self.request.query_params.get("city", None)
-        if city_slug:
-            # Use city__slug to avoid additional query since city is already selected
-            queryset = queryset.filter(city__slug=city_slug)
+        city_param = self.request.query_params.get("city", None)
+        if city_param:
+            # Support both city ID and city slug for flexibility
+            if city_param.isdigit():
+                queryset = queryset.filter(city_id=city_param)
+            else:
+                queryset = queryset.filter(city__slug=city_param)
 
         return queryset.order_by("-created_at")  # Explicit ordering for consistency
 
@@ -37,11 +40,12 @@ class ArticleViewSet(viewsets.ModelViewSet):
                 name="city",
                 type=OpenApiTypes.STR,
                 location=OpenApiParameter.QUERY,
-                description="Filter articles by city slug",
+                description="Filter articles by city ID or city slug",
                 required=False,
                 examples=[
-                    OpenApiExample("Mumbai articles", value="mumbai"),
-                    OpenApiExample("Delhi articles", value="delhi"),
+                    OpenApiExample("Mumbai articles by ID", value="1"),
+                    OpenApiExample("Mumbai articles by slug", value="mumbai"),
+                    OpenApiExample("Delhi articles by slug", value="delhi"),
                 ],
             ),
             OpenApiParameter(
