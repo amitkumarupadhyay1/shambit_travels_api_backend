@@ -40,12 +40,12 @@ class PackageViewSet(viewsets.ModelViewSet):
             .filter(is_active=True)
             .order_by("-created_at")
         )
-        
+
         # Filter by city if provided
         city_id = self.request.query_params.get("city", None)
         if city_id:
             queryset = queryset.filter(city_id=city_id)
-        
+
         return queryset
 
     @extend_schema(
