@@ -34,18 +34,36 @@ class PackageViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         # Optimized queryset with select_related and prefetch_related
-        return (
+        queryset = (
             Package.objects.select_related("city")
             .prefetch_related("experiences", "hotel_tiers", "transport_options")
             .filter(is_active=True)
             .order_by("-created_at")
         )
+        
+        # Filter by city if provided
+        city_id = self.request.query_params.get("city", None)
+        if city_id:
+            queryset = queryset.filter(city_id=city_id)
+        
+        return queryset
 
     @extend_schema(
         operation_id="list_packages",
         summary="List all packages",
-        description="Retrieve a paginated list of active travel packages with their components.",
+        description="Retrieve a paginated list of active travel packages with their components. Filter by city using the city query parameter.",
         parameters=[
+            OpenApiParameter(
+                name="city",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Filter packages by city ID",
+                required=False,
+                examples=[
+                    OpenApiExample("Mumbai packages", value=1),
+                    OpenApiExample("Delhi packages", value=2),
+                ],
+            ),
             OpenApiParameter(
                 name="search",
                 type=OpenApiTypes.STR,
