@@ -12,7 +12,11 @@ from drf_spectacular.utils import (
 from pricing_engine.services.pricing_service import PricingService
 from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
+from rest_framework.permissions import (
+    AllowAny,
+    IsAuthenticated,
+    IsAuthenticatedOrReadOnly,
+)
 from rest_framework.response import Response
 
 from .models import Experience, HotelTier, Package, TransportOption
@@ -307,7 +311,7 @@ class PackageViewSet(viewsets.ModelViewSet):
             ),
         ],
     )
-    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated])
+    @action(detail=True, methods=["post"], permission_classes=[AllowAny])
     def calculate_price(self, request, slug=None):
         """
         Calculate total price for selected package components.
