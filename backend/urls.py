@@ -18,17 +18,39 @@ from .swagger_views import (
 def serve_media(request, path):
     """
     Custom media serving view that handles multiple storage locations
+    with proper CORS headers for Next.js Image Optimization
     """
+    # Handle OPTIONS preflight request
+    if request.method == "OPTIONS":
+        response = HttpResponse()
+        response["Access-Control-Allow-Origin"] = "*"
+        response["Access-Control-Allow-Methods"] = "GET, HEAD, OPTIONS"
+        response["Access-Control-Allow-Headers"] = "*"
+        response["Access-Control-Max-Age"] = "86400"
+        return response
+
     # Try primary media location first
     primary_path = os.path.join(settings.MEDIA_ROOT, path)
     if os.path.exists(primary_path):
-        return serve(request, path, document_root=settings.MEDIA_ROOT)
+        response = serve(request, path, document_root=settings.MEDIA_ROOT)
+        # Add CORS headers for Next.js Image Optimization
+        response["Access-Control-Allow-Origin"] = "*"
+        response["Access-Control-Allow-Methods"] = "GET, HEAD, OPTIONS"
+        response["Access-Control-Allow-Headers"] = "*"
+        response["Cache-Control"] = "public, max-age=31536000, immutable"
+        return response
 
     # Try fallback location
     fallback_root = "/tmp/media"
     fallback_path = os.path.join(fallback_root, path)
     if os.path.exists(fallback_path):
-        return serve(request, path, document_root=fallback_root)
+        response = serve(request, path, document_root=fallback_root)
+        # Add CORS headers for Next.js Image Optimization
+        response["Access-Control-Allow-Origin"] = "*"
+        response["Access-Control-Allow-Methods"] = "GET, HEAD, OPTIONS"
+        response["Access-Control-Allow-Headers"] = "*"
+        response["Cache-Control"] = "public, max-age=31536000, immutable"
+        return response
 
     # File not found in either location
     raise Http404("Media file not found")
