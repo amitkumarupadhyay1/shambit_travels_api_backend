@@ -275,15 +275,22 @@ class PackageViewSet(viewsets.ModelViewSet):
                     "pricing_note": serializers.CharField(),
                 },
             ),
-            400: OpenApiExample(
-                "Invalid request",
-                value={"error": "One or more experiences not found"},
-                response_only=True,
+            400: inline_serializer(
+                name="PriceCalculationError",
+                fields={
+                    "error": serializers.CharField(),
+                },
+            ),
+            429: inline_serializer(
+                name="RateLimitError",
+                fields={
+                    "error": serializers.CharField(),
+                },
             ),
         },
         examples=[
             OpenApiExample(
-                "Price calculation request",
+                "Valid price calculation request",
                 value={
                     "experience_ids": [1, 3, 5],
                     "hotel_tier_id": 2,
@@ -292,7 +299,7 @@ class PackageViewSet(viewsets.ModelViewSet):
                 request_only=True,
             ),
             OpenApiExample(
-                "Price calculation response",
+                "Successful price calculation",
                 value={
                     "total_price": "28500.00",
                     "currency": "INR",
@@ -320,6 +327,61 @@ class PackageViewSet(viewsets.ModelViewSet):
                     "pricing_note": "This is an estimate. Final price calculated at checkout.",
                 },
                 response_only=True,
+                status_codes=["200"],
+            ),
+            OpenApiExample(
+                "Error: Empty experience list",
+                value={"error": "Please select at least 1 experience"},
+                response_only=True,
+                status_codes=["400"],
+            ),
+            OpenApiExample(
+                "Error: Too many experiences",
+                value={"error": "Maximum 10 experiences can be selected"},
+                response_only=True,
+                status_codes=["400"],
+            ),
+            OpenApiExample(
+                "Error: Duplicate experience IDs",
+                value={"error": "Duplicate experience IDs are not allowed"},
+                response_only=True,
+                status_codes=["400"],
+            ),
+            OpenApiExample(
+                "Error: Invalid experience ID format",
+                value={"error": "All experience IDs must be valid integers"},
+                response_only=True,
+                status_codes=["400"],
+            ),
+            OpenApiExample(
+                "Error: Missing hotel tier",
+                value={"error": "hotel_tier_id is required"},
+                response_only=True,
+                status_codes=["400"],
+            ),
+            OpenApiExample(
+                "Error: Missing transport option",
+                value={"error": "transport_option_id is required"},
+                response_only=True,
+                status_codes=["400"],
+            ),
+            OpenApiExample(
+                "Error: Experience not found",
+                value={"error": "One or more experiences not found or inactive"},
+                response_only=True,
+                status_codes=["400"],
+            ),
+            OpenApiExample(
+                "Error: Experience not in package",
+                value={"error": "Experience ID 99 does not belong to this package"},
+                response_only=True,
+                status_codes=["400"],
+            ),
+            OpenApiExample(
+                "Error: Rate limit exceeded",
+                value={"error": "Rate limit exceeded. Please try again later."},
+                response_only=True,
+                status_codes=["429"],
             ),
         ],
     )
