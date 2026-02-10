@@ -162,12 +162,14 @@ class GuestCheckoutView(APIView):
                     status=status.HTTP_201_CREATED,
                 )
             except Exception as e:
-                logger.error(f"Guest checkout failed: {str(e)}")
+                logger.error(f"Guest checkout failed: {str(e)}", exc_info=True)
                 return Response(
-                    {"error": "Guest checkout failed. Please try again."},
+                    {"error": f"Guest checkout failed: {str(e)}"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+        # Return validation errors
+        logger.error(f"Guest checkout validation failed: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 

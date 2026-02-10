@@ -31,6 +31,7 @@ class UserManager(BaseUserManager):
 class User(AbstractUser):
     # Add any extra fields if needed
     avatar = models.ImageField(upload_to="avatars/", null=True, blank=True)
+    phone = models.CharField(max_length=15, blank=True, default="")
     oauth_provider = models.CharField(
         max_length=50, blank=True, db_index=True
     )  # OAuth filtering
