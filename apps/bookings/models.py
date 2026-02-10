@@ -26,6 +26,16 @@ class Booking(models.Model):
         TransportOption, on_delete=models.PROTECT, db_index=True
     )
 
+    # Booking details
+    booking_date = models.DateField(db_index=True, null=True, blank=True)
+    num_travelers = models.PositiveIntegerField(default=1)
+
+    # Customer information (snapshot at booking time)
+    customer_name = models.CharField(max_length=255, blank=True, default="")
+    customer_email = models.EmailField(blank=True, default="")
+    customer_phone = models.CharField(max_length=15, blank=True, default="")
+    special_requests = models.TextField(blank=True, default="")
+
     total_price = models.DecimalField(
         max_digits=12, decimal_places=2, db_index=True
     )  # Price filtering
@@ -48,11 +58,12 @@ class Booking(models.Model):
                 fields=["user", "created_at"]
             ),  # User bookings ordered by date
             models.Index(fields=["total_price", "status"]),  # Price analysis by status
+            models.Index(fields=["booking_date"]),  # Bookings by travel date
         ]
         ordering = ["-created_at"]
 
     def __str__(self):
-        return f"Booking #{self.id} - {self.user.email}"
+        return f"Booking #{self.id} - {self.customer_name} - {self.booking_date}"
 
     def can_transition_to(self, new_status):
         transitions = {
@@ -61,4 +72,4 @@ class Booking(models.Model):
             "CONFIRMED": ["CANCELLED"],
             "CANCELLED": [],
         }
-        return new_status in transitions.get(self.status, [])
+        return new_status.get(self.status, [])

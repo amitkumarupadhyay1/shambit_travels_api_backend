@@ -54,6 +54,18 @@ class BookingCreateSerializer(serializers.ModelSerializer):
     transport_option_id = serializers.IntegerField(write_only=True, required=True)
     package_id = serializers.IntegerField(write_only=True, required=True)
 
+    # Booking details
+    booking_date = serializers.DateField(required=True)
+    num_travelers = serializers.IntegerField(required=True, min_value=1)
+
+    # Customer information
+    customer_name = serializers.CharField(required=True, max_length=255)
+    customer_email = serializers.EmailField(required=True)
+    customer_phone = serializers.CharField(required=True, max_length=15)
+    special_requests = serializers.CharField(
+        required=False, allow_blank=True, default=""
+    )
+
     class Meta:
         model = Booking
         fields = [
@@ -61,7 +73,24 @@ class BookingCreateSerializer(serializers.ModelSerializer):
             "selected_experience_ids",
             "hotel_tier_id",
             "transport_option_id",
+            "booking_date",
+            "num_travelers",
+            "customer_name",
+            "customer_email",
+            "customer_phone",
+            "special_requests",
         ]
+
+    def validate_booking_date(self, value):
+        """Validate booking date is at least 3 days in the future"""
+        from datetime import date, timedelta
+
+        min_date = date.today() + timedelta(days=3)
+        if value < min_date:
+            raise serializers.ValidationError(
+                f"Booking date must be at least 3 days in advance. Minimum date: {min_date}"
+            )
+        return value
 
     def validate(self, data):
         """Validate all component IDs exist"""
@@ -106,6 +135,12 @@ class BookingCreateSerializer(serializers.ModelSerializer):
             hotel_tier_id=validated_data["hotel_tier_id"],
             transport_option_id=validated_data["transport_option_id"],
             user=self.context["request"].user,
+            booking_date=validated_data["booking_date"],
+            num_travelers=validated_data["num_travelers"],
+            customer_name=validated_data["customer_name"],
+            customer_email=validated_data["customer_email"],
+            customer_phone=validated_data["customer_phone"],
+            special_requests=validated_data.get("special_requests", ""),
         )
 
         return booking

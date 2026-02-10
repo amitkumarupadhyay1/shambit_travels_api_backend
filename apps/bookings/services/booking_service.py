@@ -47,7 +47,17 @@ class BookingService:
 
     @staticmethod
     def calculate_and_create_booking(
-        package, experience_ids, hotel_tier_id, transport_option_id, user
+        package,
+        experience_ids,
+        hotel_tier_id,
+        transport_option_id,
+        user,
+        booking_date,
+        num_travelers,
+        customer_name,
+        customer_email,
+        customer_phone,
+        special_requests="",
     ):
         """
         BACKEND-AUTHORITATIVE: Calculate price and create booking.
@@ -73,7 +83,7 @@ class BookingService:
                 f"hotel={hotel_tier.name}, transport={transport_option.name})"
             )
 
-            # Create booking with calculated price
+            # Create booking with calculated price and all details
             with transaction.atomic():
                 booking = Booking.objects.create(
                     user=user,
@@ -82,6 +92,12 @@ class BookingService:
                     selected_transport=transport_option,
                     total_price=calculated_price,
                     status="DRAFT",
+                    booking_date=booking_date,
+                    num_travelers=num_travelers,
+                    customer_name=customer_name,
+                    customer_email=customer_email,
+                    customer_phone=customer_phone,
+                    special_requests=special_requests,
                 )
                 booking.selected_experiences.set(experiences)
 
