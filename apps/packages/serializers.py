@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from rest_framework.exceptions import ValidationError
 
 from .models import Experience, HotelTier, Package, TransportOption
 
@@ -34,6 +35,40 @@ class ExperienceSerializer(serializers.ModelSerializer):
                 return request.build_absolute_uri(obj.featured_image.file.url)
             return obj.featured_image.file.url
         return None
+
+    def validate_base_price(self, value):
+        """Validate base price is within acceptable range"""
+        if value < 100:
+            raise ValidationError("Base price must be at least ₹100")
+        if value > 100000:
+            raise ValidationError("Base price cannot exceed ₹100,000")
+        return value
+
+    def validate_duration_hours(self, value):
+        """Validate duration is positive"""
+        if value < 0.5:
+            raise ValidationError("Duration must be at least 0.5 hours")
+        return value
+
+    def validate_max_participants(self, value):
+        """Validate max participants is positive"""
+        if value < 1:
+            raise ValidationError("Must allow at least 1 participant")
+        return value
+
+    def validate(self, data):
+        """Cross-field validation"""
+        # Ensure name is not empty or just whitespace
+        if "name" in data and not data["name"].strip():
+            raise ValidationError({"name": "Experience name cannot be empty"})
+
+        # Ensure description is meaningful
+        if "description" in data and len(data["description"].strip()) < 50:
+            raise ValidationError(
+                {"description": "Description must be at least 50 characters"}
+            )
+
+        return data
 
 
 class HotelTierSerializer(serializers.ModelSerializer):

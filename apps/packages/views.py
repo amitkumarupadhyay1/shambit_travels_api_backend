@@ -1,7 +1,10 @@
 import logging
 
 from django.shortcuts import get_object_or_404
+from django.utils.decorators import method_decorator
 
+import bleach
+from django_ratelimit.decorators import ratelimit
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import (
     OpenApiExample,
@@ -19,6 +22,7 @@ from rest_framework.permissions import (
 )
 from rest_framework.response import Response
 
+from .logging import AuditLogger, get_client_ip
 from .models import Experience, HotelTier, Package, TransportOption
 from .serializers import (
     ExperienceSerializer,
@@ -55,7 +59,7 @@ class PackageViewSet(viewsets.ModelViewSet):
     @extend_schema(
         operation_id="list_packages",
         summary="List all packages",
-        description="Retrieve a paginated list of active travel packages with their components. Filter by city using the city query parameter.",
+        description="Retrieve a paginated list of active travel packages with their components. Filter by city using the city query parameter. Rate limited to 100 requests per minute per IP.",
         parameters=[
             OpenApiParameter(
                 name="city",
@@ -83,8 +87,16 @@ class PackageViewSet(viewsets.ModelViewSet):
                 required=False,
             ),
         ],
-        responses={200: PackageSerializer(many=True)},
+        responses={
+            200: PackageSerializer(many=True),
+            429: OpenApiExample(
+                "Rate limit exceeded",
+                value={"error": "Rate limit exceeded. Please try again later."},
+                response_only=True,
+            ),
+        },
     )
+    @method_decorator(ratelimit(key="ip", rate="100/m", method="GET", block=True))
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
 
@@ -311,33 +323,147 @@ class PackageViewSet(viewsets.ModelViewSet):
             ),
         ],
     )
+    @method_decorator(ratelimit(key="ip", rate="10/m", method="POST", block=True))
     @action(detail=True, methods=["post"], permission_classes=[AllowAny])
     def calculate_price(self, request, slug=None):
         """
         Calculate total price for selected package components.
         Frontend uses this to DISPLAY price, never trusts its own calculation.
+        Rate limited to 10 requests per minute per IP to prevent abuse.
         """
         package = self.get_object()
         data = request.data
+        ip_address = get_client_ip(request)
+        user_id = request.user.id if request.user.is_authenticated else None
 
         try:
             experience_ids = data.get("experience_ids", [])
             hotel_tier_id = data.get("hotel_tier_id")
             transport_option_id = data.get("transport_option_id")
 
+            # Validation 1: Check experience_ids is a list
+            if not isinstance(experience_ids, list):
+                AuditLogger.log_validation_failure(
+                    endpoint="calculate_price",
+                    error_type="invalid_type",
+                    error_message="experience_ids must be a list",
+                    user_id=user_id,
+                    ip_address=ip_address,
+                    request_data=data,
+                )
+                return Response(
+                    {"error": "experience_ids must be a list"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Validation 2: Check experience_ids length (1-10)
+            if len(experience_ids) < 1:
+                AuditLogger.log_validation_failure(
+                    endpoint="calculate_price",
+                    error_type="min_length",
+                    error_message="Please select at least 1 experience",
+                    user_id=user_id,
+                    ip_address=ip_address,
+                    request_data=data,
+                )
+                return Response(
+                    {"error": "Please select at least 1 experience"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if len(experience_ids) > 10:
+                AuditLogger.log_validation_failure(
+                    endpoint="calculate_price",
+                    error_type="max_length",
+                    error_message="Maximum 10 experiences can be selected",
+                    user_id=user_id,
+                    ip_address=ip_address,
+                    request_data=data,
+                )
+                return Response(
+                    {"error": "Maximum 10 experiences can be selected"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Validation 3: Check for duplicate experience IDs
+            if len(experience_ids) != len(set(experience_ids)):
+                AuditLogger.log_validation_failure(
+                    endpoint="calculate_price",
+                    error_type="duplicate_ids",
+                    error_message="Duplicate experience IDs are not allowed",
+                    user_id=user_id,
+                    ip_address=ip_address,
+                    request_data=data,
+                )
+                return Response(
+                    {"error": "Duplicate experience IDs are not allowed"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Validation 4: Check all IDs are integers
+            try:
+                experience_ids = [int(id) for id in experience_ids]
+            except (ValueError, TypeError):
+                AuditLogger.log_validation_failure(
+                    endpoint="calculate_price",
+                    error_type="invalid_format",
+                    error_message="All experience IDs must be valid integers",
+                    user_id=user_id,
+                    ip_address=ip_address,
+                    request_data=data,
+                )
+                return Response(
+                    {"error": "All experience IDs must be valid integers"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Validation 5: Check required fields
+            if hotel_tier_id is None:
+                AuditLogger.log_validation_failure(
+                    endpoint="calculate_price",
+                    error_type="missing_field",
+                    error_message="hotel_tier_id is required",
+                    user_id=user_id,
+                    ip_address=ip_address,
+                    request_data=data,
+                )
+                return Response(
+                    {"error": "hotel_tier_id is required"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if transport_option_id is None:
+                return Response(
+                    {"error": "transport_option_id is required"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             # Get components
-            experiences = Experience.objects.filter(id__in=experience_ids)
+            experiences = Experience.objects.filter(
+                id__in=experience_ids, is_active=True
+            )
             hotel_tier = get_object_or_404(HotelTier, id=hotel_tier_id)
             transport_option = get_object_or_404(
                 TransportOption, id=transport_option_id
             )
 
-            # Validate all experiences found
+            # Validation 6: Validate all experiences found and active
             if len(experiences) != len(experience_ids):
                 return Response(
-                    {"error": "One or more experiences not found"},
+                    {"error": "One or more experiences not found or inactive"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+
+            # Validation 7: Validate experiences belong to this package
+            package_experience_ids = set(
+                package.experiences.values_list("id", flat=True)
+            )
+            for exp_id in experience_ids:
+                if exp_id not in package_experience_ids:
+                    return Response(
+                        {
+                            "error": f"Experience ID {exp_id} does not belong to this package"
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
 
             # Calculate price
             total_price = PricingService.calculate_total(
@@ -351,9 +477,19 @@ class PackageViewSet(viewsets.ModelViewSet):
                 base_experience_price + transport_price
             ) * hotel_tier.price_multiplier
 
+            # Audit log successful price calculation
+            AuditLogger.log_price_calculation(
+                user_id=user_id,
+                package_slug=package.slug,
+                experience_count=len(experience_ids),
+                total_price=float(total_price),
+                ip_address=ip_address,
+                success=True,
+            )
+
             logger.info(
-                f"Price calculated for user {request.user.id}: "
-                f"package={package.slug}, total=${total_price}"
+                f"Price calculated for user {user_id or 'anonymous'}: "
+                f"package={package.slug}, experiences={len(experience_ids)}, total={total_price}"
             )
 
             return Response(
@@ -384,6 +520,16 @@ class PackageViewSet(viewsets.ModelViewSet):
                 }
             )
         except Exception as e:
+            # Audit log failed price calculation
+            AuditLogger.log_price_calculation(
+                user_id=user_id,
+                package_slug=package.slug,
+                experience_count=len(data.get("experience_ids", [])),
+                total_price=0,
+                ip_address=ip_address,
+                success=False,
+                error=str(e),
+            )
             logger.error(f"Price calculation error: {str(e)}")
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -402,6 +548,21 @@ class ExperienceViewSet(viewsets.ReadOnlyModelViewSet):
         queryset = Experience.objects.select_related("city", "featured_image").filter(
             is_active=True
         )
+
+        # Sanitize search query to prevent XSS/SQL injection
+        search_query = self.request.query_params.get("search", "")
+        if search_query:
+            # Sanitize the search input
+            search_query = bleach.clean(
+                search_query, tags=[], attributes={}, strip=True
+            ).strip()
+            # Limit search query length
+            search_query = search_query[:100]
+            if search_query:
+                # Store sanitized query back for DRF's search filter
+                self.request.query_params._mutable = True
+                self.request.query_params["search"] = search_query
+                self.request.query_params._mutable = False
 
         # Allow filtering by price range
         min_price = self.request.query_params.get("min_price")
@@ -483,8 +644,16 @@ class ExperienceViewSet(viewsets.ReadOnlyModelViewSet):
                 required=False,
             ),
         ],
-        responses={200: ExperienceSerializer(many=True)},
+        responses={
+            200: ExperienceSerializer(many=True),
+            429: OpenApiExample(
+                "Rate limit exceeded",
+                value={"error": "Rate limit exceeded. Please try again later."},
+                response_only=True,
+            ),
+        },
     )
+    @method_decorator(ratelimit(key="ip", rate="100/m", method="GET", block=True))
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
 

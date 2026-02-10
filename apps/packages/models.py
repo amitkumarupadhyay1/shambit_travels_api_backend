@@ -1,3 +1,4 @@
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 from cities.models import City
@@ -24,7 +25,14 @@ class Experience(models.Model):
     name = models.CharField(max_length=200, db_index=True)  # Frequently searched
     description = models.TextField()
     base_price = models.DecimalField(
-        max_digits=10, decimal_places=2, db_index=True
+        max_digits=10,
+        decimal_places=2,
+        db_index=True,
+        validators=[
+            MinValueValidator(100, message="Base price must be at least ₹100"),
+            MaxValueValidator(100000, message="Base price cannot exceed ₹100,000"),
+        ],
+        help_text="Price in INR (₹100 - ₹100,000)",
     )  # Price filtering
 
     # New Fields - Phase 1 Enhancement
@@ -37,10 +45,20 @@ class Experience(models.Model):
         related_name="experiences",
     )
     duration_hours = models.DecimalField(
-        max_digits=4, decimal_places=2, default=2.5, help_text="Duration in hours"
+        max_digits=4,
+        decimal_places=2,
+        default=2.5,
+        validators=[
+            MinValueValidator(0.5, message="Duration must be at least 0.5 hours"),
+        ],
+        help_text="Duration in hours (minimum 0.5 hours)",
     )
     max_participants = models.IntegerField(
-        default=15, help_text="Maximum number of participants"
+        default=15,
+        validators=[
+            MinValueValidator(1, message="Must allow at least 1 participant"),
+        ],
+        help_text="Maximum number of participants (minimum 1)",
     )
     difficulty_level = models.CharField(
         max_length=20, choices=DIFFICULTY_CHOICES, default="EASY", db_index=True
