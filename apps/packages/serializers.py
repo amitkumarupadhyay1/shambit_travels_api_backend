@@ -4,9 +4,36 @@ from .models import Experience, HotelTier, Package, TransportOption
 
 
 class ExperienceSerializer(serializers.ModelSerializer):
+    featured_image_url = serializers.SerializerMethodField()
+    city_name = serializers.CharField(
+        source="city.name", read_only=True, allow_null=True
+    )
+
     class Meta:
         model = Experience
-        fields = ["id", "name", "description", "base_price", "created_at"]
+        fields = [
+            "id",
+            "name",
+            "description",
+            "base_price",
+            "is_active",
+            "featured_image_url",
+            "duration_hours",
+            "max_participants",
+            "difficulty_level",
+            "category",
+            "city_name",
+            "created_at",
+            "updated_at",
+        ]
+
+    def get_featured_image_url(self, obj):
+        if obj.featured_image and obj.featured_image.file:
+            request = self.context.get("request")
+            if request:
+                return request.build_absolute_uri(obj.featured_image.file.url)
+            return obj.featured_image.file.url
+        return None
 
 
 class HotelTierSerializer(serializers.ModelSerializer):

@@ -390,17 +390,119 @@ class PackageViewSet(viewsets.ModelViewSet):
 
 @extend_schema(tags=["Packages"])
 class ExperienceViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Experience.objects.all().order_by("name")  # Explicit ordering
     serializer_class = ExperienceSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
+    filterset_fields = ["city", "category", "difficulty_level", "is_active"]
+    search_fields = ["name", "description"]
+    ordering_fields = ["name", "base_price", "created_at", "duration_hours"]
+    ordering = ["name"]
+
+    def get_queryset(self):
+        # Optimized queryset with select_related and filter active by default
+        queryset = Experience.objects.select_related("city", "featured_image").filter(
+            is_active=True
+        )
+
+        # Allow filtering by price range
+        min_price = self.request.query_params.get("min_price")
+        max_price = self.request.query_params.get("max_price")
+
+        if min_price:
+            queryset = queryset.filter(base_price__gte=min_price)
+        if max_price:
+            queryset = queryset.filter(base_price__lte=max_price)
+
+        return queryset.order_by(self.ordering[0])
 
     @extend_schema(
         operation_id="list_experiences",
         summary="List all experiences",
-        description="Retrieve a list of all available travel experiences.",
+        description="""
+        Retrieve a paginated list of active travel experiences.
+        
+        **Filtering:**
+        - `city`: Filter by city ID
+        - `category`: Filter by category (CULTURAL, ADVENTURE, FOOD, SPIRITUAL, NATURE, ENTERTAINMENT, EDUCATIONAL)
+        - `difficulty_level`: Filter by difficulty (EASY, MODERATE, HARD)
+        - `min_price`: Minimum price filter
+        - `max_price`: Maximum price filter
+        - `search`: Search in name and description
+        
+        **Sorting:**
+        - `ordering`: Sort by field (name, base_price, created_at, duration_hours)
+        - Prefix with `-` for descending order (e.g., `-base_price`)
+        """,
+        parameters=[
+            OpenApiParameter(
+                name="city",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Filter by city ID",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="category",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="Filter by category",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="difficulty_level",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="Filter by difficulty level",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="min_price",
+                type=OpenApiTypes.NUMBER,
+                location=OpenApiParameter.QUERY,
+                description="Minimum price",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="max_price",
+                type=OpenApiTypes.NUMBER,
+                location=OpenApiParameter.QUERY,
+                description="Maximum price",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="search",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="Search in name and description",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="ordering",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="Sort field (name, base_price, created_at, duration_hours)",
+                required=False,
+            ),
+        ],
+        responses={200: ExperienceSerializer(many=True)},
     )
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
+
+    @extend_schema(
+        operation_id="get_experience",
+        summary="Get experience details",
+        description="Retrieve detailed information about a specific experience.",
+        responses={
+            200: ExperienceSerializer,
+            404: OpenApiExample(
+                "Experience not found",
+                value={"detail": "Not found."},
+                response_only=True,
+            ),
+        },
+    )
+    def retrieve(self, request, *args, **kwargs):
+        return super().retrieve(request, *args, **kwargs)
 
 
 @extend_schema(tags=["Packages"])

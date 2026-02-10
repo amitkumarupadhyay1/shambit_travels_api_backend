@@ -5,10 +5,78 @@ from .models import Experience, HotelTier, Package, TransportOption
 
 @admin.register(Experience)
 class ExperienceAdmin(admin.ModelAdmin):
-    list_display = ["name", "base_price", "created_at"]
+    list_display = [
+        "name",
+        "category",
+        "city",
+        "base_price",
+        "duration_hours",
+        "is_active",
+        "created_at",
+    ]
+    list_filter = [
+        "is_active",
+        "category",
+        "difficulty_level",
+        "city",
+        "created_at",
+    ]
     search_fields = ["name", "description"]
-    list_filter = ["created_at", "base_price"]
-    ordering = ["name"]
+    list_editable = ["is_active", "base_price"]
+    readonly_fields = ["created_at", "updated_at"]
+    list_per_page = 25
+
+    fieldsets = (
+        (
+            "Basic Information",
+            {"fields": ("name", "description", "category", "city")},
+        ),
+        (
+            "Details",
+            {"fields": ("duration_hours", "max_participants", "difficulty_level")},
+        ),
+        (
+            "Pricing & Media",
+            {"fields": ("base_price", "featured_image")},
+        ),
+        (
+            "Status",
+            {"fields": ("is_active", "created_at", "updated_at")},
+        ),
+    )
+
+    actions = ["activate_experiences", "deactivate_experiences", "duplicate_experience"]
+
+    def activate_experiences(self, request, queryset):
+        updated = queryset.update(is_active=True)
+        self.message_user(
+            request, f"{updated} experience(s) successfully activated.", level="success"
+        )
+
+    activate_experiences.short_description = "Activate selected experiences"
+
+    def deactivate_experiences(self, request, queryset):
+        updated = queryset.update(is_active=False)
+        self.message_user(
+            request,
+            f"{updated} experience(s) successfully deactivated.",
+            level="success",
+        )
+
+    deactivate_experiences.short_description = "Deactivate selected experiences"
+
+    def duplicate_experience(self, request, queryset):
+        count = 0
+        for exp in queryset:
+            exp.pk = None
+            exp.name = f"{exp.name} (Copy)"
+            exp.save()
+            count += 1
+        self.message_user(
+            request, f"{count} experience(s) successfully duplicated.", level="success"
+        )
+
+    duplicate_experience.short_description = "Duplicate selected experiences"
 
 
 @admin.register(HotelTier)

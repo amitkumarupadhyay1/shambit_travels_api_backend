@@ -4,17 +4,72 @@ from cities.models import City
 
 
 class Experience(models.Model):
+    DIFFICULTY_CHOICES = [
+        ("EASY", "Easy"),
+        ("MODERATE", "Moderate"),
+        ("HARD", "Hard"),
+    ]
+
+    CATEGORY_CHOICES = [
+        ("CULTURAL", "Cultural"),
+        ("ADVENTURE", "Adventure"),
+        ("FOOD", "Food & Culinary"),
+        ("SPIRITUAL", "Spiritual"),
+        ("NATURE", "Nature & Wildlife"),
+        ("ENTERTAINMENT", "Entertainment"),
+        ("EDUCATIONAL", "Educational"),
+    ]
+
+    # Basic Information
     name = models.CharField(max_length=200, db_index=True)  # Frequently searched
     description = models.TextField()
     base_price = models.DecimalField(
         max_digits=10, decimal_places=2, db_index=True
     )  # Price filtering
+
+    # New Fields - Phase 1 Enhancement
+    is_active = models.BooleanField(default=True, db_index=True)
+    featured_image = models.ForeignKey(
+        "media_library.Media",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="experiences",
+    )
+    duration_hours = models.DecimalField(
+        max_digits=4, decimal_places=2, default=2.5, help_text="Duration in hours"
+    )
+    max_participants = models.IntegerField(
+        default=15, help_text="Maximum number of participants"
+    )
+    difficulty_level = models.CharField(
+        max_length=20, choices=DIFFICULTY_CHOICES, default="EASY", db_index=True
+    )
+    category = models.CharField(
+        max_length=50, choices=CATEGORY_CHOICES, db_index=True, default="CULTURAL"
+    )
+    city = models.ForeignKey(
+        City,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="experiences",
+        db_index=True,
+    )
+
+    # Timestamps
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         indexes = [
             models.Index(fields=["name", "base_price"]),  # Search + price filter
             models.Index(fields=["base_price", "created_at"]),  # Price + date ordering
+            models.Index(fields=["category", "is_active"]),  # Category filter
+            models.Index(fields=["city", "is_active"]),  # City filter
+            models.Index(
+                fields=["is_active", "created_at"]
+            ),  # Active experiences ordered by date
         ]
         ordering = ["name"]
 
