@@ -242,12 +242,33 @@ AXES_FAILURE_LIMIT = 5
 AXES_COOLOFF_TIME = timedelta(minutes=15)
 AXES_LOCKOUT_TEMPLATE = "locked_out.html"
 
-# Cache settings - using local memory cache for development (required for rate limiting)
+# Cache settings - Redis for production, local memory for development
 CACHES = {
     "default": {
-        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-        "LOCATION": "unique-snowflake",
+        "BACKEND": os.environ.get(
+            "CACHE_BACKEND", "django.core.cache.backends.locmem.LocMemCache"
+        ),
+        "LOCATION": os.environ.get("REDIS_URL", "redis://127.0.0.1:6379/1"),
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            "SOCKET_CONNECT_TIMEOUT": 5,
+            "SOCKET_TIMEOUT": 5,
+            "CONNECTION_POOL_KWARGS": {"max_connections": 50},
+            "COMPRESSOR": "django_redis.compressors.zlib.ZlibCompressor",
+            "IGNORE_EXCEPTIONS": True,  # Don't fail if Redis is down
+        },
+        "KEY_PREFIX": "shambit",
+        "TIMEOUT": 300,  # 5 minutes default
     }
+}
+
+# Cache time settings (in seconds)
+CACHE_TTL = {
+    "experiences_list": 300,  # 5 minutes
+    "package_detail": 600,  # 10 minutes
+    "package_list": 300,  # 5 minutes
+    "city_list": 3600,  # 1 hour
+    "price_range": 600,  # 10 minutes
 }
 
 # Celery settings - disabled for development

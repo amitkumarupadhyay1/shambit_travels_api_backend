@@ -58,28 +58,50 @@ def serve_media(request, path):
 
 def health_check(request):
     """Health check endpoint for monitoring and load balancers"""
+    import time
+
+    start_time = time.time()
+
     try:
         # Try database connection but don't fail if it's not available
         db_status = "unknown"
+        db_response_time = None
         try:
             from django.db import connection
 
+            db_start = time.time()
             with connection.cursor() as cursor:
                 cursor.execute("SELECT 1")
+            db_response_time = round((time.time() - db_start) * 1000, 2)  # ms
             db_status = "connected"
-        except Exception:
-            db_status = "disconnected"
+        except Exception as e:
+            db_status = f"disconnected: {str(e)}"
+
+        response_time = round((time.time() - start_time) * 1000, 2)  # ms
 
         return JsonResponse(
             {
                 "status": "healthy",
                 "service": "shambit-travels-api",
                 "version": "1.0.0",
-                "database": db_status,
+                "timestamp": time.time(),
+                "database": {
+                    "status": db_status,
+                    "response_time_ms": db_response_time,
+                },
+                "response_time_ms": response_time,
             }
         )
     except Exception as e:
-        return JsonResponse({"status": "unhealthy", "error": str(e)}, status=500)
+        response_time = round((time.time() - start_time) * 1000, 2)
+        return JsonResponse(
+            {
+                "status": "unhealthy",
+                "error": str(e),
+                "response_time_ms": response_time,
+            },
+            status=500,
+        )
 
 
 def root_redirect(request):

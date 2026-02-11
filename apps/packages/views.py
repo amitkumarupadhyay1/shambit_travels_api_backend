@@ -2,6 +2,7 @@ import logging
 
 from django.shortcuts import get_object_or_404
 from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
 
 import bleach
 from django_ratelimit.decorators import ratelimit
@@ -22,6 +23,7 @@ from rest_framework.permissions import (
 )
 from rest_framework.response import Response
 
+from .cache import cache_response, invalidate_experience_cache, invalidate_package_cache
 from .logging import AuditLogger, get_client_ip
 from .models import Experience, HotelTier, Package, TransportOption
 from .serializers import (
@@ -59,7 +61,7 @@ class PackageViewSet(viewsets.ModelViewSet):
     @extend_schema(
         operation_id="list_packages",
         summary="List all packages",
-        description="Retrieve a paginated list of active travel packages with their components. Filter by city using the city query parameter. Rate limited to 100 requests per minute per IP.",
+        description="Retrieve a paginated list of active travel packages with their components. Filter by city using the city query parameter. Rate limited to 100 requests per minute per IP. Cached for 5 minutes.",
         parameters=[
             OpenApiParameter(
                 name="city",
@@ -89,21 +91,31 @@ class PackageViewSet(viewsets.ModelViewSet):
         ],
         responses={
             200: PackageSerializer(many=True),
-            429: OpenApiExample(
-                "Rate limit exceeded",
-                value={"error": "Rate limit exceeded. Please try again later."},
-                response_only=True,
+            400: inline_serializer(
+                name="BadRequest",
+                fields={"error": serializers.CharField()},
+            ),
+            429: inline_serializer(
+                name="RateLimitExceeded",
+                fields={"error": serializers.CharField()},
+            ),
+            500: inline_serializer(
+                name="ServerError",
+                fields={"error": serializers.CharField()},
             ),
         },
     )
     @method_decorator(ratelimit(key="ip", rate="100/m", method="GET", block=True))
+    @cache_response(
+        timeout=300, key_prefix="packages", vary_on_params=["city", "search", "page"]
+    )
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
 
     @extend_schema(
         operation_id="get_package",
         summary="Get package details",
-        description="Retrieve detailed information about a specific package including all available experiences, hotel tiers, and transport options.",
+        description="Retrieve detailed information about a specific package including all available experiences, hotel tiers, and transport options. Cached for 10 minutes.",
         parameters=[
             OpenApiParameter(
                 name="slug",
@@ -127,6 +139,7 @@ class PackageViewSet(viewsets.ModelViewSet):
             ),
         },
     )
+    @cache_response(timeout=600, key_prefix="package")
     def retrieve(self, request, *args, **kwargs):
         return super().retrieve(request, *args, **kwargs)
 
@@ -654,6 +667,8 @@ class ExperienceViewSet(viewsets.ReadOnlyModelViewSet):
         **Sorting:**
         - `ordering`: Sort by field (name, base_price, created_at, duration_hours)
         - Prefix with `-` for descending order (e.g., `-base_price`)
+        
+        **Caching:** Responses cached for 5 minutes
         """,
         parameters=[
             OpenApiParameter(
@@ -716,6 +731,20 @@ class ExperienceViewSet(viewsets.ReadOnlyModelViewSet):
         },
     )
     @method_decorator(ratelimit(key="ip", rate="100/m", method="GET", block=True))
+    @cache_response(
+        timeout=300,
+        key_prefix="experiences",
+        vary_on_params=[
+            "city",
+            "category",
+            "difficulty_level",
+            "min_price",
+            "max_price",
+            "search",
+            "ordering",
+            "page",
+        ],
+    )
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
 
