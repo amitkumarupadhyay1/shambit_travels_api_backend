@@ -1,5 +1,12 @@
-from django.contrib import admin
+from decimal import Decimal
 
+from django.contrib import admin
+from django.db.models import QuerySet
+from django.http import HttpRequest
+from django.urls import path
+from django.utils.html import format_html
+
+from .admin_views import ExperienceAnalyticsDashboard
 from .models import Experience, HotelTier, Package, TransportOption
 
 
@@ -45,16 +52,33 @@ class ExperienceAdmin(admin.ModelAdmin):
         ),
     )
 
-    actions = ["activate_experiences", "deactivate_experiences", "duplicate_experience"]
+    def get_urls(self):
+        """Add custom URL for analytics dashboard"""
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                "analytics/",
+                self.admin_site.admin_view(ExperienceAnalyticsDashboard.as_view()),
+                name="packages_experience_analytics",
+            ),
+        ]
+        return custom_urls + urls
 
+    def changelist_view(self, request, extra_context=None):
+        """Add analytics link to changelist view"""
+        extra_context = extra_context or {}
+        extra_context["analytics_url"] = "analytics/"
+        return super().changelist_view(request, extra_context)
+
+    # Existing actions
+    @admin.action(description="Activate selected experiences")
     def activate_experiences(self, request, queryset):
         updated = queryset.update(is_active=True)
         self.message_user(
             request, f"{updated} experience(s) successfully activated.", level="success"
         )
 
-    activate_experiences.short_description = "Activate selected experiences"
-
+    @admin.action(description="Deactivate selected experiences")
     def deactivate_experiences(self, request, queryset):
         updated = queryset.update(is_active=False)
         self.message_user(
@@ -63,8 +87,7 @@ class ExperienceAdmin(admin.ModelAdmin):
             level="success",
         )
 
-    deactivate_experiences.short_description = "Deactivate selected experiences"
-
+    @admin.action(description="Duplicate selected experiences")
     def duplicate_experience(self, request, queryset):
         count = 0
         for exp in queryset:
@@ -76,7 +99,71 @@ class ExperienceAdmin(admin.ModelAdmin):
             request, f"{count} experience(s) successfully duplicated.", level="success"
         )
 
-    duplicate_experience.short_description = "Duplicate selected experiences"
+    # New bulk operations
+    @admin.action(description="Increase prices by 10%")
+    def bulk_price_increase(self, request: HttpRequest, queryset: QuerySet):
+        """Increase prices by 10%"""
+        count = 0
+        for exp in queryset:
+            exp.base_price = exp.base_price * Decimal("1.10")
+            exp.save()
+            count += 1
+        self.message_user(
+            request,
+            f"Increased prices by 10% for {count} experience(s).",
+            level="success",
+        )
+
+    @admin.action(description="Decrease prices by 10%")
+    def bulk_price_decrease(self, request: HttpRequest, queryset: QuerySet):
+        """Decrease prices by 10%"""
+        count = 0
+        for exp in queryset:
+            new_price = exp.base_price * Decimal("0.90")
+            # Ensure price doesn't go below minimum
+            if new_price >= 100:
+                exp.base_price = new_price
+                exp.save()
+                count += 1
+        self.message_user(
+            request,
+            f"Decreased prices by 10% for {count} experience(s). "
+            f"Skipped experiences that would go below ₹100.",
+            level="success",
+        )
+
+    @admin.action(description="Change category to CULTURAL")
+    def bulk_change_category(self, request: HttpRequest, queryset: QuerySet):
+        """Change category to CULTURAL (example - can be extended with form)"""
+        updated = queryset.update(category="CULTURAL")
+        self.message_user(
+            request,
+            f"Changed category to CULTURAL for {updated} experience(s). "
+            f"Note: For other categories, use individual edit.",
+            level="warning",
+        )
+
+    @admin.action(description="Activate all in same city")
+    def bulk_activate_by_city(self, request: HttpRequest, queryset: QuerySet):
+        """Activate all experiences in the same cities as selected"""
+        cities = queryset.values_list("city", flat=True).distinct()
+        updated = Experience.objects.filter(city__in=cities).update(is_active=True)
+        self.message_user(
+            request,
+            f"Activated {updated} experience(s) in selected cities.",
+            level="success",
+        )
+
+    @admin.action(description="Deactivate all in same city")
+    def bulk_deactivate_by_city(self, request: HttpRequest, queryset: QuerySet):
+        """Deactivate all experiences in the same cities as selected"""
+        cities = queryset.values_list("city", flat=True).distinct()
+        updated = Experience.objects.filter(city__in=cities).update(is_active=False)
+        self.message_user(
+            request,
+            f"Deactivated {updated} experience(s) in selected cities.",
+            level="warning",
+        )
 
 
 @admin.register(HotelTier)
