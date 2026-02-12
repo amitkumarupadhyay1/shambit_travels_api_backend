@@ -111,49 +111,33 @@ MEDIA_URL = "/media/"
 MEDIA_URL = "/media/"
 
 if "RAILWAY_VOLUME_MOUNT_PATH" in os.environ:
-    # Railway volume is mounted, but let's use a subdirectory we can control
+    # Railway Hobby plan volume is mounted
     volume_path = os.environ["RAILWAY_VOLUME_MOUNT_PATH"]
-    MEDIA_ROOT = os.path.join(volume_path, "uploads")
+    MEDIA_ROOT = os.path.join(volume_path, "media")
     print(f"📁 Using Railway volume for media: {MEDIA_ROOT}")
 
-    # Try to create the uploads directory with specific permissions
+    # Create media directory if it doesn't exist
     try:
-        os.makedirs(MEDIA_ROOT, mode=0o777, exist_ok=True)
-        print(f"📁 Created uploads directory with 777 permissions")
-    except PermissionError:
-        # If we can't create uploads dir, fall back to /tmp
-        MEDIA_ROOT = "/tmp/railway-media"
-        os.makedirs(MEDIA_ROOT, mode=0o777, exist_ok=True)
-        print(f"📁 Using fallback media directory: {MEDIA_ROOT}")
+        os.makedirs(MEDIA_ROOT, mode=0o755, exist_ok=True)
+        print(f"✅ Media directory created/verified")
 
-    # Use custom storage backend for Railway that handles permissions
-    DEFAULT_FILE_STORAGE = "backend.storage_backends.RailwayFileSystemStorage"
+        # Test write permissions
+        test_file = os.path.join(MEDIA_ROOT, ".write_test")
+        with open(test_file, "w") as f:
+            f.write("test")
+        os.remove(test_file)
+        print(f"✅ Write permissions verified")
+
+    except Exception as e:
+        print(f"❌ Media directory setup failed: {e}")
+        # Fallback to /tmp (will show error in health check)
+        MEDIA_ROOT = "/tmp/media-fallback"
+        os.makedirs(MEDIA_ROOT, exist_ok=True)
+        print(f"⚠️ Using fallback directory: {MEDIA_ROOT}")
 else:
-    # Fallback to local media directory
+    # Local development
     MEDIA_ROOT = BASE_DIR / "media"
     print(f"📁 Using local media directory: {MEDIA_ROOT}")
-
-# Debug volume permissions
-import os
-
-if "RAILWAY_VOLUME_MOUNT_PATH" in os.environ:
-    volume_path = os.environ["RAILWAY_VOLUME_MOUNT_PATH"]
-    try:
-        stat_info = os.stat(volume_path)
-        print(f"📁 Volume permissions: {oct(stat_info.st_mode)[-3:]}")
-        print(f"📁 Volume owner: {stat_info.st_uid}:{stat_info.st_gid}")
-        print(f"📁 Current process UID: {os.getuid()}")
-    except Exception as e:
-        print(f"📁 Cannot check volume permissions: {e}")
-
-try:
-    if os.path.exists(MEDIA_ROOT):
-        print(f"📁 Media directory exists: True")
-        print(f"📁 Media directory contents: {os.listdir(MEDIA_ROOT)}")
-    else:
-        print(f"📁 Media directory exists: False")
-except Exception as e:
-    print(f"⚠️ Error checking media directory: {e}")
 
 # Logging settings for production
 LOGGING = {

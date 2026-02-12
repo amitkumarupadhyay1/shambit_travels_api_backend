@@ -454,6 +454,41 @@ class MediaViewSet(viewsets.ModelViewSet):
 
         return Response(content_types)
 
+    @action(detail=False, methods=["get"])
+    def health(self, request):
+        """
+        Health check for media storage
+        GET /api/media/health/
+        """
+        storage_info = MediaService.get_storage_info()
+
+        if "error" in storage_info:
+            return Response(
+                {
+                    "status": "unhealthy",
+                    "error": storage_info["error"],
+                    "recommendation": "Check Railway volume configuration",
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        # Check if using Railway volume
+        is_persistent = "RAILWAY_VOLUME_MOUNT_PATH" in os.environ
+
+        return Response(
+            {
+                "status": "healthy",
+                "media_root": storage_info["media_root"],
+                "is_persistent": is_persistent,
+                "storage_type": (
+                    "Railway Volume" if is_persistent else "Local/Ephemeral"
+                ),
+                "total_files": storage_info["total_files"],
+                "total_size_mb": storage_info["total_size_mb"],
+                "writable": True,
+            }
+        )
+
 
 class MediaToolsViewSet(viewsets.ViewSet):
     """

@@ -30,6 +30,9 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    # Cloudinary must be before django.contrib.staticfiles
+    "cloudinary_storage",
+    "cloudinary",
     "rest_framework",
     "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",

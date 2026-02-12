@@ -135,6 +135,16 @@ class Package(models.Model):
     slug = models.SlugField(unique=True, db_index=True)  # Primary lookup field
     description = models.TextField()
 
+    # Media Library Integration
+    featured_image = models.ForeignKey(
+        "media_library.Media",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="packages",
+        help_text="Main image for the package displayed in listings and detail pages",
+    )
+
     experiences = models.ManyToManyField(Experience, blank=True)
     hotel_tiers = models.ManyToManyField(HotelTier, blank=True)
     transport_options = models.ManyToManyField(TransportOption, blank=True)

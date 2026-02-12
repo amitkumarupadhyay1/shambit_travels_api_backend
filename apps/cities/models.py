@@ -48,6 +48,41 @@ class City(models.Model):
     def __str__(self):
         return self.name
 
+    @property
+    def media_gallery(self):
+        """
+        Get all media files for this city from media library.
+        Returns QuerySet of Media objects.
+        """
+        from django.contrib.contenttypes.models import ContentType
+
+        from media_library.models import Media
+
+        ct = ContentType.objects.get_for_model(self)
+        return Media.objects.filter(content_type=ct, object_id=self.id)
+
+    @property
+    def featured_media(self):
+        """
+        Get first media file as featured image.
+        Returns Media object or None.
+        """
+        gallery = self.media_gallery
+        return gallery.first() if gallery.exists() else None
+
+    def get_hero_image_url(self):
+        """
+        Get hero image URL with fallback logic:
+        1. Try featured_media from media library
+        2. Fall back to hero_image field
+        3. Return None if no image available
+        """
+        if self.featured_media and self.featured_media.file:
+            return self.featured_media.file.url
+        elif self.hero_image:
+            return self.hero_image.url
+        return None
+
 
 class Highlight(models.Model):
     city = models.ForeignKey(
