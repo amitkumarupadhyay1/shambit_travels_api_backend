@@ -26,6 +26,7 @@ class MediaAdmin(admin.ModelAdmin):
     search_fields = ["title", "alt_text", "file"]
     readonly_fields = ["created_at", "file_info_display", "file_preview"]
     list_per_page = 50
+    list_select_related = ["content_type"]  # Optimize queries
 
     fieldsets = (
         ("Media File", {"fields": ("file", "file_preview", "file_info_display")}),
@@ -41,6 +42,11 @@ class MediaAdmin(admin.ModelAdmin):
     )
 
     actions = ["optimize_images", "generate_thumbnails", "update_metadata"]
+
+    def get_queryset(self, request):
+        """Override to add select_related for performance"""
+        qs = super().get_queryset(request)
+        return qs.select_related("content_type")
 
     def get_urls(self):
         urls = super().get_urls()
@@ -60,17 +66,20 @@ class MediaAdmin(admin.ModelAdmin):
 
     def thumbnail_preview(self, obj):
         """Show thumbnail preview for images"""
-        if obj.file and MediaUtils.is_image_file(obj.file.name):
+        if obj.file:
             try:
+                if MediaUtils.is_image_file(obj.file.name):
+                    return format_html(
+                        '<img src="{}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;">',
+                        obj.file.url,
+                    )
+            except (ValueError, AttributeError, Exception):
+                # If file URL fails, show error icon
                 return format_html(
-                    '<img src="{}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;">',
-                    obj.file.url,
+                    '<div style="width: 50px; height: 50px; background: #ffebee; display: flex; align-items: center; justify-content: center; border-radius: 4px; font-size: 20px; color: #c62828;">⚠️</div>'
                 )
-            except (ValueError, AttributeError):
-                pass
 
-        # Show file type icon for non-images
-        icon = MediaUtils.get_file_type_icon(obj.file.name if obj.file else "")
+        # Show file type icon for non-images or missing files
         return format_html(
             '<div style="width: 50px; height: 50px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; border-radius: 4px; font-size: 20px;">📄</div>'
         )
@@ -80,7 +89,11 @@ class MediaAdmin(admin.ModelAdmin):
     def title_with_filename(self, obj):
         """Show title with filename"""
         title = obj.title or "Untitled"
-        filename = os.path.basename(obj.file.name) if obj.file else "No file"
+
+        try:
+            filename = os.path.basename(obj.file.name) if obj.file else "No file"
+        except Exception:
+            filename = "Error loading filename"
 
         return format_html(
             '<strong>{}</strong><br><small style="color: #666;">{}</small>',
@@ -95,7 +108,10 @@ class MediaAdmin(admin.ModelAdmin):
         if not obj.file:
             return format_html('<span style="color: red;">No file</span>')
 
-        extension = os.path.splitext(obj.file.name)[1].lower()
+        try:
+            extension = os.path.splitext(obj.file.name)[1].lower()
+        except Exception:
+            return format_html('<span style="color: red;">Error</span>')
 
         if extension in [".jpg", ".jpeg", ".png", ".gif", ".webp"]:
             color = "#28a745"  # Green
@@ -124,33 +140,36 @@ class MediaAdmin(admin.ModelAdmin):
             try:
                 size = obj.file.size
                 return MediaUtils.format_file_size(size)
-            except (OSError, ValueError):
-                return "Unknown"
+            except (OSError, ValueError, Exception):
+                return format_html('<span style="color: #f57c00;">Error</span>')
         return "No file"
 
     file_size_display.short_description = "Size"
 
     def content_object_link(self, obj):
         """Show link to the content object"""
-        if obj.content_object:
-            try:
-                url = reverse(
-                    f"admin:{obj.content_type.app_label}_{obj.content_type.model}_change",
-                    args=[obj.object_id],
-                )
-                return format_html(
-                    '<a href="{}" target="_blank">{}</a><br><small>{}</small>',
-                    url,
-                    str(obj.content_object),
-                    f"{obj.content_type.app_label}.{obj.content_type.model}",
-                )
-            except:
-                return format_html(
-                    "{}<br><small>{}</small>",
-                    str(obj.content_object),
-                    f"{obj.content_type.app_label}.{obj.content_type.model}",
-                )
-        return format_html('<span style="color: #999;">Not attached</span>')
+        try:
+            if obj.content_object:
+                try:
+                    url = reverse(
+                        f"admin:{obj.content_type.app_label}_{obj.content_type.model}_change",
+                        args=[obj.object_id],
+                    )
+                    return format_html(
+                        '<a href="{}" target="_blank">{}</a><br><small>{}</small>',
+                        url,
+                        str(obj.content_object),
+                        f"{obj.content_type.app_label}.{obj.content_type.model}",
+                    )
+                except Exception:
+                    return format_html(
+                        "{}<br><small>{}</small>",
+                        str(obj.content_object),
+                        f"{obj.content_type.app_label}.{obj.content_type.model}",
+                    )
+            return format_html('<span style="color: #999;">Not attached</span>')
+        except Exception:
+            return format_html('<span style="color: #f57c00;">Error loading</span>')
 
     content_object_link.short_description = "Attached To"
 
@@ -161,30 +180,47 @@ class MediaAdmin(admin.ModelAdmin):
 
         try:
             file_size = MediaUtils.format_file_size(obj.file.size)
-            file_path = obj.file.path
+            file_name = os.path.basename(obj.file.name)
 
             info_html = f"""
             <div style="background: #f8f9fa; padding: 10px; border-radius: 4px;">
-                <p><strong>File:</strong> {os.path.basename(obj.file.name)}</p>
+                <p><strong>File:</strong> {file_name}</p>
                 <p><strong>Size:</strong> {file_size}</p>
-                <p><strong>Path:</strong> <code>{file_path}</code></p>
             """
+
+            # Try to get file path (may not work with Cloudinary)
+            try:
+                file_path = obj.file.path
+                info_html += f"<p><strong>Path:</strong> <code>{file_path}</code></p>"
+            except (NotImplementedError, AttributeError):
+                # Cloudinary doesn't support .path
+                info_html += f"<p><strong>URL:</strong> <code>{obj.file.url}</code></p>"
 
             # Add image-specific info
             if MediaUtils.is_image_file(obj.file.name):
-                image_info = MediaUtils.get_image_info(file_path)
-                if image_info:
-                    info_html += f"""
-                    <p><strong>Dimensions:</strong> {image_info['width']} × {image_info['height']}</p>
-                    <p><strong>Format:</strong> {image_info['format']}</p>
-                    <p><strong>Mode:</strong> {image_info['mode']}</p>
-                    """
+                try:
+                    # Try to get image info if file has a path
+                    if hasattr(obj.file, "path"):
+                        image_info = MediaUtils.get_image_info(obj.file.path)
+                        if image_info:
+                            info_html += f"""
+                            <p><strong>Dimensions:</strong> {image_info['width']} × {image_info['height']}</p>
+                            <p><strong>Format:</strong> {image_info['format']}</p>
+                            <p><strong>Mode:</strong> {image_info['mode']}</p>
+                            """
+                except Exception:
+                    pass
 
             info_html += "</div>"
             return format_html(info_html)
 
-        except (OSError, ValueError, AttributeError):
-            return "File information unavailable"
+        except Exception as e:
+            return format_html(
+                '<div style="background: #ffebee; padding: 10px; border-radius: 4px; color: #c62828;">'
+                "File information unavailable: {}"
+                "</div>",
+                str(e),
+            )
 
     file_info_display.short_description = "File Information"
 
@@ -193,20 +229,26 @@ class MediaAdmin(admin.ModelAdmin):
         if not obj.file:
             return "No file to preview"
 
-        if MediaUtils.is_image_file(obj.file.name):
-            try:
-                return format_html(
-                    '<img src="{}" style="max-width: 300px; max-height: 200px; border: 1px solid #ddd; border-radius: 4px;">',
-                    obj.file.url,
-                )
-            except (ValueError, AttributeError):
-                return "Image preview unavailable"
-        else:
-            return format_html(
-                "<p>Preview not available for this file type.</p>"
-                '<p><a href="{}" target="_blank">Download file</a></p>',
-                obj.file.url if obj.file else "#",
-            )
+        try:
+            if MediaUtils.is_image_file(obj.file.name):
+                try:
+                    return format_html(
+                        '<img src="{}" style="max-width: 300px; max-height: 200px; border: 1px solid #ddd; border-radius: 4px;">',
+                        obj.file.url,
+                    )
+                except Exception:
+                    return "Image preview unavailable"
+            else:
+                try:
+                    return format_html(
+                        "<p>Preview not available for this file type.</p>"
+                        '<p><a href="{}" target="_blank">Download file</a></p>',
+                        obj.file.url,
+                    )
+                except Exception:
+                    return "File preview unavailable"
+        except Exception:
+            return "Preview unavailable"
 
     file_preview.short_description = "Preview"
 
