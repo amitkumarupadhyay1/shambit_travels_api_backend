@@ -2,8 +2,10 @@
 # This file contains storage backends for cloud providers
 
 import os
+from pathlib import Path
 
-from django.conf import settings
+# Get BASE_DIR from environment or calculate it
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 # Cloudinary Configuration (RECOMMENDED - Free Tier Available)
 if os.environ.get("USE_CLOUDINARY") == "True":
@@ -31,7 +33,7 @@ if os.environ.get("USE_CLOUDINARY") == "True":
         "INVALID_VIDEO_ERROR_MESSAGE": "Please upload a valid video file.",
         "EXCLUDE_DELETE_ORPHANED_MEDIA_PATHS": (),
         "STATIC_TAG": "static",
-        "STATICFILES_MANIFEST_ROOT": os.path.join(settings.BASE_DIR, "manifest"),
+        "STATICFILES_MANIFEST_ROOT": os.path.join(BASE_DIR, "manifest"),
         "MAGIC_FILE_PATH": "magic",
     }
 

@@ -369,3 +369,10 @@ INTERNAL_IPS = [
     "192.168.29.45",
     "192.168.29.1",  # Gateway
 ]
+
+# Import storage configuration (Cloudinary)
+# This must be imported after INSTALLED_APPS and other base settings
+try:
+    from .storage import *  # noqa
+except ImportError:
+    pass  # Storage configuration is optional
