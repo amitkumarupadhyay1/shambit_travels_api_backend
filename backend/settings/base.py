@@ -376,3 +376,18 @@ try:
     from .storage import *  # noqa
 except ImportError:
     pass  # Storage configuration is optional
+
+# Force Cloudinary storage if enabled (MUST be after storage.py import)
+# This ensures Cloudinary is actually used instead of FileSystemStorage
+if os.environ.get("USE_CLOUDINARY") == "True":
+    DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
+
+    # Also set STORAGES for Django 4.2+ compatibility
+    STORAGES = {
+        "default": {
+            "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        },
+    }

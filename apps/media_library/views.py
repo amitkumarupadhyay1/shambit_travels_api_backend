@@ -27,6 +27,7 @@ from .serializers import (
     MediaUpdateSerializer,
     MediaUploadSerializer,
 )
+from .services.cloudinary_monitor import CloudinaryMonitor
 from .services.media_service import MediaService
 from .utils import MediaProcessor, MediaValidator
 
@@ -488,6 +489,69 @@ class MediaViewSet(viewsets.ModelViewSet):
                 "writable": True,
             }
         )
+
+    @action(detail=False, methods=["get"])
+    def cloudinary_usage(self, request):
+        """
+        Get Cloudinary usage statistics
+        GET /api/media/cloudinary_usage/
+        """
+        try:
+            monitor = CloudinaryMonitor()
+            usage_stats = monitor.get_usage_stats()
+            return Response(usage_stats)
+        except ValueError as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception as e:
+            return Response(
+                {"error": "Failed to fetch Cloudinary usage", "detail": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+    @action(detail=False, methods=["get"])
+    def cloudinary_alerts(self, request):
+        """
+        Get Cloudinary usage alerts
+        GET /api/media/cloudinary_alerts/
+        """
+        try:
+            monitor = CloudinaryMonitor()
+            alerts = monitor.get_alerts()
+            return Response({"alerts": alerts, "count": len(alerts)})
+        except ValueError as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception as e:
+            return Response(
+                {"error": "Failed to fetch alerts", "detail": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+    @action(detail=False, methods=["get"])
+    def cloudinary_summary(self, request):
+        """
+        Get complete Cloudinary usage summary with recommendations
+        GET /api/media/cloudinary_summary/
+        """
+        try:
+            monitor = CloudinaryMonitor()
+            summary = monitor.get_summary()
+            return Response(summary)
+        except ValueError as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception as e:
+            return Response(
+                {"error": "Failed to fetch summary", "detail": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class MediaToolsViewSet(viewsets.ViewSet):
