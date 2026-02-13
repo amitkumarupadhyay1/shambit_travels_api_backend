@@ -1,9 +1,4 @@
-# Ensure .env is loaded for production (Railway will override with actual env vars)
-from dotenv import load_dotenv
-
 from .base import *
-
-load_dotenv()
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get("DEBUG", "False") == "True"
