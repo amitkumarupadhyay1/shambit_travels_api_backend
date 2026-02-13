@@ -35,33 +35,30 @@ PORT = os.environ.get("PORT", "8000")
 # Database settings for production - Railway PostgreSQL
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
-# Database settings for production - Railway PostgreSQL
-DATABASE_URL = os.environ.get("DATABASE_URL")
-
 if DATABASE_URL:
-    # Parse the DATABASE_URL using dj_database_url
-    # Use parse() instead of config() for more explicit control
-    import dj_database_url
+    # Manual parsing for maximum reliability
+    # Format: postgresql://user:password@host:port/dbname?options
+    from urllib.parse import urlparse
 
-    db_config = dj_database_url.parse(DATABASE_URL)
+    parsed = urlparse(DATABASE_URL)
 
-    # Add connection settings
-    db_config["CONN_MAX_AGE"] = 600
-    db_config["CONN_HEALTH_CHECKS"] = True
+    # Extract SSL mode from query string
+    ssl_mode = "require" if "sslmode=require" in DATABASE_URL else "prefer"
 
-    # CRITICAL: Explicitly construct DATABASES dict with ENGINE first
-    # This ensures ENGINE is always present and not accidentally removed
+    # Construct DATABASES directly - no external library dependencies
     DATABASES = {
         "default": {
-            "ENGINE": db_config.get("ENGINE") or "django.db.backends.postgresql",
-            "NAME": db_config.get("NAME", ""),
-            "USER": db_config.get("USER", ""),
-            "PASSWORD": db_config.get("PASSWORD", ""),
-            "HOST": db_config.get("HOST", ""),
-            "PORT": db_config.get("PORT", "5432"),
-            "CONN_MAX_AGE": db_config.get("CONN_MAX_AGE", 600),
-            "CONN_HEALTH_CHECKS": db_config.get("CONN_HEALTH_CHECKS", True),
-            "OPTIONS": db_config.get("OPTIONS", {}),
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": parsed.path[1:],  # Remove leading slash
+            "USER": parsed.username,
+            "PASSWORD": parsed.password,
+            "HOST": parsed.hostname,
+            "PORT": parsed.port or 5432,
+            "CONN_MAX_AGE": 600,
+            "CONN_HEALTH_CHECKS": True,
+            "OPTIONS": {
+                "sslmode": ssl_mode,
+            },
         }
     }
 
@@ -69,15 +66,8 @@ if DATABASE_URL:
     print(f"✅ Database ENGINE: {DATABASES['default']['ENGINE']}")
     print(f"✅ Database NAME: {DATABASES['default']['NAME']}")
     print(f"✅ Database HOST: {DATABASES['default']['HOST']}")
+    print(f"✅ Database PORT: {DATABASES['default']['PORT']}")
     print(f"✅ Full config keys: {list(DATABASES['default'].keys())}")
-
-    # Verify ENGINE is actually set and not empty
-    assert DATABASES["default"][
-        "ENGINE"
-    ], "❌ CRITICAL: ENGINE is empty after configuration!"
-    assert (
-        DATABASES["default"]["ENGINE"] != "django.db.backends.dummy.base"
-    ), "❌ CRITICAL: Dummy backend detected!"
 else:
     # This should not happen in production
     print("❌ CRITICAL: No DATABASE_URL environment variable found!")
