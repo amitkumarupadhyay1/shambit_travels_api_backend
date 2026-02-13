@@ -165,7 +165,16 @@ SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 # Static files for Railway
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+
+# Use STORAGES for Django 4.2+ (replaces STATICFILES_STORAGE)
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
 
 # Ensure static directory exists
 STATICFILES_DIRS = []
@@ -173,10 +182,6 @@ static_dir = BASE_DIR / "static"
 if static_dir.exists():
     STATICFILES_DIRS = [static_dir]
 
-# Media files for Railway - use volume for persistent storage
-MEDIA_URL = "/media/"
-
-# Use Railway volume for persistent media storage
 # Media files for Railway - use volume for persistent storage
 MEDIA_URL = "/media/"
 
@@ -208,6 +213,10 @@ else:
     # Local development
     MEDIA_ROOT = BASE_DIR / "media"
     print(f"📁 Using local media directory: {MEDIA_ROOT}")
+
+# Update STORAGES with media configuration
+STORAGES["default"]["BACKEND"] = "django.core.files.storage.FileSystemStorage"
+STORAGES["default"]["OPTIONS"] = {"location": MEDIA_ROOT}
 
 # Logging settings for production
 LOGGING = {
