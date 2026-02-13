@@ -42,13 +42,13 @@ if DATABASE_URL:
     # Parse the DATABASE_URL using dj_database_url
     # Use parse() instead of config() for more explicit control
     import dj_database_url
-    
+
     db_config = dj_database_url.parse(DATABASE_URL)
-    
+
     # Add connection settings
     db_config["CONN_MAX_AGE"] = 600
     db_config["CONN_HEALTH_CHECKS"] = True
-    
+
     # CRITICAL: Explicitly construct DATABASES dict with ENGINE first
     # This ensures ENGINE is always present and not accidentally removed
     DATABASES = {
@@ -70,10 +70,14 @@ if DATABASE_URL:
     print(f"✅ Database NAME: {DATABASES['default']['NAME']}")
     print(f"✅ Database HOST: {DATABASES['default']['HOST']}")
     print(f"✅ Full config keys: {list(DATABASES['default'].keys())}")
-    
+
     # Verify ENGINE is actually set and not empty
-    assert DATABASES['default']['ENGINE'], "❌ CRITICAL: ENGINE is empty after configuration!"
-    assert DATABASES['default']['ENGINE'] != 'django.db.backends.dummy.base', "❌ CRITICAL: Dummy backend detected!"
+    assert DATABASES["default"][
+        "ENGINE"
+    ], "❌ CRITICAL: ENGINE is empty after configuration!"
+    assert (
+        DATABASES["default"]["ENGINE"] != "django.db.backends.dummy.base"
+    ), "❌ CRITICAL: Dummy backend detected!"
 else:
     # This should not happen in production
     print("❌ CRITICAL: No DATABASE_URL environment variable found!")

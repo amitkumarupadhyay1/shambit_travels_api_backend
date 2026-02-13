@@ -1,8 +1,14 @@
 # Railway Environment Variables
 # Copy these to your Railway project's Variables section
-# IMPORTANT: Update the DATABASE_URL in Railway to remove channel_binding=require
 
-# Database - CRITICAL FIX: Remove channel_binding=require from the URL
+# ⚠️ CRITICAL FIX REQUIRED ⚠️
+# The DATABASE_URL on Railway MUST NOT contain &channel_binding=require
+# This parameter causes dj_database_url to fail parsing the URL
+# 
+# WRONG (current on Railway):
+# DATABASE_URL=postgresql://neondb_owner:npg_VyDnfoCEu46z@ep-solitary-cell-ahfvkw6i-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+#
+# CORRECT (update to this):
 DATABASE_URL=postgresql://neondb_owner:npg_VyDnfoCEu46z@ep-solitary-cell-ahfvkw6i-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require
 
 # Django Core Settings
