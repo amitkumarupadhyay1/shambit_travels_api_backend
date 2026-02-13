@@ -12,20 +12,15 @@ echo "Database URL: ${DATABASE_URL:0:50}..."
 
 # Test Django configuration first
 echo "🔍 Testing Django configuration..."
-python manage.py check --deploy
+python manage.py check
 
 # Run migrations
 echo "📦 Running migrations..."
-# Use custom migration script that ensures proper database connection
-python force_migrate.py
+python manage.py migrate --noinput
 
 # Collect static files
 echo "📁 Collecting static files..."
 python manage.py collectstatic --noinput
-
-# Test health check endpoint
-echo "🏥 Testing health check endpoint..."
-python diagnose_startup.py
 
 # Start the application
 echo "🌟 Starting Gunicorn on port $PORT..."
