@@ -1,3 +1,5 @@
+from .base import *
+
 print("🔍 DEBUG: Starting production.py import")
 print(f"🔍 DEBUG: __name__ = {__name__}")
 print(f"🔍 DEBUG: __file__ = {__file__}")
@@ -260,3 +262,21 @@ print(f"🔥 DATABASES['default']['NAME']: {DATABASES['default'].get('NAME')}")
 print(f"🔥 DATABASES['default']['HOST']: {DATABASES['default'].get('HOST')}")
 print(f"🔥 DATABASES object id: {id(DATABASES)}")
 print("=" * 80)
+
+# NUCLEAR OPTION: Force Django to reset its database connections
+# This ensures Django uses our DATABASES setting and not a cached one
+try:
+    from django.db import connections
+    from django.db.utils import ConnectionHandler
+
+    # Close any existing connections
+    connections.close_all()
+
+    # Force Django to reinitialize the connection handler with our DATABASES
+    print("🔧 Forcing Django to reinitialize database connections...")
+    connections._connections = ConnectionHandler(DATABASES)
+    print("✅ Database connections reinitialized")
+except Exception as e:
+    print(
+        f"⚠️ Could not reinitialize connections (this is OK during initial import): {e}"
+    )
