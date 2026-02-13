@@ -31,19 +31,32 @@ PORT = os.environ.get("PORT", "8000")
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 if DATABASE_URL:
-    DATABASES = {
-        "default": dj_database_url.config(
-            default=DATABASE_URL,
-            conn_max_age=600,
-            conn_health_checks=True,
-        )
-    }
+    # Parse the DATABASE_URL using dj_database_url
+    db_config = dj_database_url.config(
+        default=DATABASE_URL,
+        conn_max_age=600,
+        conn_health_checks=True,
+    )
+
+    # Ensure ENGINE is set (dj_database_url should do this, but let's be explicit)
+    if not db_config.get("ENGINE"):
+        db_config["ENGINE"] = "django.db.backends.postgresql"
+
+    DATABASES = {"default": db_config}
     print(f"✅ Database configured with URL: {DATABASE_URL[:50]}...")
+    print(f"✅ Database ENGINE: {db_config.get('ENGINE')}")
 else:
     # This should not happen in production
     import logging
 
     logging.error("❌ CRITICAL: No DATABASE_URL environment variable found!")
+    # Set a dummy database to prevent ImproperlyConfigured error during checks
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": "missing_database_url",
+        }
+    }
     raise Exception("DATABASE_URL environment variable is required for production")
 
 # Email settings for production
@@ -79,6 +92,28 @@ if "RAILWAY_PUBLIC_DOMAIN" in os.environ:
     CORS_ALLOWED_ORIGINS.append(public_domain)
 
 CORS_ALLOW_ALL_ORIGINS = os.environ.get("CORS_ALLOW_ALL_ORIGINS", "False") == "True"
+
+# CSRF trusted origins for production
+CSRF_TRUSTED_ORIGINS = [
+    "https://yourdomain.com",
+    "https://www.yourdomain.com",
+    "https://shambit-frontend.up.railway.app",
+    "https://shambittravels.up.railway.app",
+    "https://shambit.up.railway.app",
+]
+
+# Add Railway domains to CSRF trusted origins
+if "RAILWAY_STATIC_URL" in os.environ:
+    railway_url = os.environ["RAILWAY_STATIC_URL"]
+    if not railway_url.startswith(("http://", "https://")):
+        railway_url = f"https://{railway_url}"
+    CSRF_TRUSTED_ORIGINS.append(railway_url)
+
+if "RAILWAY_PUBLIC_DOMAIN" in os.environ:
+    public_domain = os.environ["RAILWAY_PUBLIC_DOMAIN"]
+    if not public_domain.startswith(("http://", "https://")):
+        public_domain = f"https://{public_domain}"
+    CSRF_TRUSTED_ORIGINS.append(public_domain)
 
 # Security settings for production - Railway
 # Disable SSL redirect for health checks
