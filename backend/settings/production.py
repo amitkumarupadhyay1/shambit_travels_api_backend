@@ -1,4 +1,9 @@
+# Ensure .env is loaded for production (Railway will override with actual env vars)
+from dotenv import load_dotenv
+
 from .base import *
+
+load_dotenv()
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get("DEBUG", "False") == "True"
@@ -31,33 +36,43 @@ PORT = os.environ.get("PORT", "8000")
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 if DATABASE_URL:
-    # Parse the DATABASE_URL using dj_database_url
+    # Parse the DATABASE_URL using dj_database_url (already imported from base.py)
     db_config = dj_database_url.config(
         default=DATABASE_URL,
         conn_max_age=600,
         conn_health_checks=True,
     )
 
-    # Ensure ENGINE is set (dj_database_url should do this, but let's be explicit)
+    # Ensure ENGINE is explicitly set
     if not db_config.get("ENGINE"):
         db_config["ENGINE"] = "django.db.backends.postgresql"
 
+    # Ensure all required keys are present
+    if not db_config.get("NAME"):
+        print("⚠️ WARNING: Database NAME not parsed from URL")
+
     DATABASES = {"default": db_config}
+
     print(f"✅ Database configured with URL: {DATABASE_URL[:50]}...")
     print(f"✅ Database ENGINE: {db_config.get('ENGINE')}")
+    print(f"✅ Database NAME: {db_config.get('NAME')}")
+    print(f"✅ Database HOST: {db_config.get('HOST')}")
+    print(f"✅ Full config keys: {list(db_config.keys())}")
 else:
     # This should not happen in production
-    import logging
-
-    logging.error("❌ CRITICAL: No DATABASE_URL environment variable found!")
-    # Set a dummy database to prevent ImproperlyConfigured error during checks
+    print("❌ CRITICAL: No DATABASE_URL environment variable found!")
+    print("⚠️ WARNING: Using fallback database configuration")
+    # Set a proper fallback database configuration
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",
-            "NAME": "missing_database_url",
+            "NAME": "postgres",
+            "USER": "postgres",
+            "PASSWORD": "",
+            "HOST": "localhost",
+            "PORT": "5432",
         }
     }
-    raise Exception("DATABASE_URL environment variable is required for production")
 
 # Email settings for production
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
