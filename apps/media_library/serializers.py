@@ -1,4 +1,5 @@
 import os
+from typing import Optional
 
 from django.contrib.contenttypes.models import ContentType
 from django.core.files.uploadedfile import InMemoryUploadedFile, TemporaryUploadedFile
@@ -57,7 +58,7 @@ class MediaSerializer(serializers.ModelSerializer):
             "responsive_urls",
         ]
 
-    def get_file_url(self, obj):
+    def get_file_url(self, obj) -> Optional[str]:
         """Get the full URL of the file"""
         if obj.file:
             request = self.context.get("request")
@@ -66,7 +67,7 @@ class MediaSerializer(serializers.ModelSerializer):
             return obj.file.url
         return None
 
-    def get_file_size(self, obj):
+    def get_file_size(self, obj) -> Optional[int]:
         """Get file size in bytes"""
         if obj.file:
             try:
@@ -75,7 +76,7 @@ class MediaSerializer(serializers.ModelSerializer):
                 return None
         return None
 
-    def get_file_type(self, obj):
+    def get_file_type(self, obj) -> Optional[str]:
         """Get file MIME type"""
         if obj.file:
             name = obj.file.name.lower()
@@ -89,11 +90,11 @@ class MediaSerializer(serializers.ModelSerializer):
                 return "other"
         return None
 
-    def get_is_image(self, obj):
+    def get_is_image(self, obj) -> bool:
         """Check if file is an image"""
         return self.get_file_type(obj) == "image"
 
-    def get_image_dimensions(self, obj):
+    def get_image_dimensions(self, obj) -> Optional[dict]:
         """Get image dimensions if it's an image"""
         if self.get_is_image(obj) and obj.file:
             try:
@@ -103,7 +104,7 @@ class MediaSerializer(serializers.ModelSerializer):
                 return None
         return None
 
-    def get_responsive_urls(self, obj):
+    def get_responsive_urls(self, obj) -> Optional[dict]:
         """
         Generate responsive image URLs for different screen sizes
         Only for images, returns None for other file types
@@ -185,7 +186,7 @@ class MediaListSerializer(serializers.ModelSerializer):
             "created_at",
         ]
 
-    def get_file_url(self, obj):
+    def get_file_url(self, obj) -> Optional[str]:
         """Get the full URL of the file"""
         if obj.file:
             request = self.context.get("request")
@@ -194,7 +195,7 @@ class MediaListSerializer(serializers.ModelSerializer):
             return obj.file.url
         return None
 
-    def get_file_type(self, obj):
+    def get_file_type(self, obj) -> Optional[str]:
         """Get file type"""
         if obj.file:
             name = obj.file.name.lower()
