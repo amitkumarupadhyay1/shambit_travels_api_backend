@@ -83,13 +83,9 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "backend.wsgi.application"
 
-# Database configuration - default fallback (overridden in environment-specific settings)
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
-}
+# Database configuration - MUST be set in environment-specific settings
+# Do NOT set a default here as it causes Django to initialize connections prematurely
+# DATABASES will be configured in production.py, development.py, or local.py
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators

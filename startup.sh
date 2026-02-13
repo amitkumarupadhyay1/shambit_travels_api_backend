@@ -16,6 +16,8 @@ python manage.py check --deploy
 
 # Run migrations
 echo "📦 Running migrations..."
+# Force close any existing database connections before migrating
+python -c "import django; django.setup(); from django.db import connections; connections.close_all()" 2>/dev/null || true
 python manage.py migrate --noinput
 
 # Collect static files
@@ -34,7 +36,6 @@ exec gunicorn \
     --timeout 120 \
     --max-requests 1000 \
     --max-requests-jitter 100 \
-    --preload \
     --access-logfile - \
     --error-logfile - \
     --log-level info \
