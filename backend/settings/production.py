@@ -1,4 +1,17 @@
+print("🔍 DEBUG: Starting production.py import")
+print(f"🔍 DEBUG: __name__ = {__name__}")
+print(f"🔍 DEBUG: __file__ = {__file__}")
+
 from .base import *
+
+print("🔍 DEBUG: Successfully imported from base.py")
+print(f"🔍 DEBUG: MIDDLEWARE from base = {MIDDLEWARE[:3]}...")  # First 3 items
+print(f"🔍 DEBUG: INSTALLED_APPS from base = {INSTALLED_APPS[:3]}...")  # First 3 items
+
+# CRITICAL: Force Django to use our DATABASES setting by preventing lazy loading
+# This ensures the database connection uses the settings we configure here
+import django.db
+from django.conf import settings as django_settings
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get("DEBUG", "False") == "True"
