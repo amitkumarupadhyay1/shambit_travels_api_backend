@@ -1,20 +1,5 @@
 from .base import *
 
-print("🔍 DEBUG: Starting production.py import")
-print(f"🔍 DEBUG: __name__ = {__name__}")
-print(f"🔍 DEBUG: __file__ = {__file__}")
-
-from .base import *
-
-print("🔍 DEBUG: Successfully imported from base.py")
-print(f"🔍 DEBUG: MIDDLEWARE from base = {MIDDLEWARE[:3]}...")  # First 3 items
-print(f"🔍 DEBUG: INSTALLED_APPS from base = {INSTALLED_APPS[:3]}...")  # First 3 items
-
-# CRITICAL: Force Django to use our DATABASES setting by preventing lazy loading
-# This ensures the database connection uses the settings we configure here
-import django.db
-from django.conf import settings as django_settings
-
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get("DEBUG", "False") == "True"
 
@@ -71,28 +56,8 @@ if DATABASE_URL:
             },
         }
     }
-
-    print(f"✅ Database configured with URL: {DATABASE_URL[:50]}...")
-    print(f"✅ Database ENGINE: {DATABASES['default']['ENGINE']}")
-    print(f"✅ Database NAME: {DATABASES['default']['NAME']}")
-    print(f"✅ Database HOST: {DATABASES['default']['HOST']}")
-    print(f"✅ Database PORT: {DATABASES['default']['PORT']}")
-    print(f"✅ Full config keys: {list(DATABASES['default'].keys())}")
 else:
-    # This should not happen in production
-    print("❌ CRITICAL: No DATABASE_URL environment variable found!")
-    print("⚠️ WARNING: Using fallback database configuration")
-    # Set a proper fallback database configuration
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": "postgres",
-            "USER": "postgres",
-            "PASSWORD": "",
-            "HOST": "localhost",
-            "PORT": "5432",
-        }
-    }
+    raise ValueError("DATABASE_URL environment variable is required in production")
 
 # Email settings for production
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
@@ -189,33 +154,14 @@ if "RAILWAY_VOLUME_MOUNT_PATH" in os.environ:
     # Railway Hobby plan volume is mounted
     volume_path = os.environ["RAILWAY_VOLUME_MOUNT_PATH"]
     MEDIA_ROOT = os.path.join(volume_path, "media")
-    print(f"📁 Using Railway volume for media: {MEDIA_ROOT}")
 
     # Create media directory if it doesn't exist
-    try:
-        os.makedirs(MEDIA_ROOT, mode=0o755, exist_ok=True)
-        print(f"✅ Media directory created/verified")
-
-        # Test write permissions
-        test_file = os.path.join(MEDIA_ROOT, ".write_test")
-        with open(test_file, "w") as f:
-            f.write("test")
-        os.remove(test_file)
-        print(f"✅ Write permissions verified")
-
-    except Exception as e:
-        print(f"❌ Media directory setup failed: {e}")
-        # Fallback to /tmp (will show error in health check)
-        MEDIA_ROOT = "/tmp/media-fallback"
-        os.makedirs(MEDIA_ROOT, exist_ok=True)
-        print(f"⚠️ Using fallback directory: {MEDIA_ROOT}")
+    os.makedirs(MEDIA_ROOT, mode=0o755, exist_ok=True)
 else:
     # Local development
     MEDIA_ROOT = BASE_DIR / "media"
-    print(f"📁 Using local media directory: {MEDIA_ROOT}")
 
 # Update STORAGES with media configuration
-STORAGES["default"]["BACKEND"] = "django.core.files.storage.FileSystemStorage"
 STORAGES["default"]["OPTIONS"] = {"location": MEDIA_ROOT}
 
 # Logging settings for production
@@ -260,32 +206,3 @@ LOGGING = {
 
 # Django Admin settings for production
 ADMIN_URL = "admin/"
-
-# CRITICAL DEBUG: Verify DATABASES is still set correctly at end of settings load
-print("=" * 80)
-print("🔥 FINAL DATABASES CHECK (end of production.py):")
-print(f"🔥 DATABASES keys: {list(DATABASES.keys())}")
-print(f"🔥 DATABASES['default'] keys: {list(DATABASES['default'].keys())}")
-print(f"🔥 DATABASES['default']['ENGINE']: {DATABASES['default'].get('ENGINE')}")
-print(f"🔥 DATABASES['default']['NAME']: {DATABASES['default'].get('NAME')}")
-print(f"🔥 DATABASES['default']['HOST']: {DATABASES['default'].get('HOST')}")
-print(f"🔥 DATABASES object id: {id(DATABASES)}")
-print("=" * 80)
-
-# NUCLEAR OPTION: Force Django to reset its database connections
-# This ensures Django uses our DATABASES setting and not a cached one
-try:
-    from django.db import connections
-    from django.db.utils import ConnectionHandler
-
-    # Close any existing connections
-    connections.close_all()
-
-    # Force Django to reinitialize the connection handler with our DATABASES
-    print("🔧 Forcing Django to reinitialize database connections...")
-    connections._connections = ConnectionHandler(DATABASES)
-    print("✅ Database connections reinitialized")
-except Exception as e:
-    print(
-        f"⚠️ Could not reinitialize connections (this is OK during initial import): {e}"
-    )

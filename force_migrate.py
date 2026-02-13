@@ -7,7 +7,7 @@ This script ensures Django uses the correct database settings.
 import os
 import sys
 
-# Set Django settings module
+# Set Django settings module BEFORE any Django imports
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "backend.settings.production")
 
 # Setup Django
@@ -15,18 +15,17 @@ import django
 
 django.setup()
 
-# Force close and reinitialize all database connections
-from django.db import connections
+# Verify database configuration
+from django.conf import settings
 
-connections.close_all()
+print("🔍 Verifying database configuration...")
+print(f"   ENGINE: {settings.DATABASES['default']['ENGINE']}")
+print(f"   NAME: {settings.DATABASES['default']['NAME']}")
+print(f"   HOST: {settings.DATABASES['default']['HOST']}")
 
-print("🔧 Database connections closed and will be reinitialized on first use")
-print(f"🔍 DATABASES setting: {django.conf.settings.DATABASES}")
-print(f"🔍 Default DB ENGINE: {django.conf.settings.DATABASES['default']['ENGINE']}")
-
-# Now run migrations
+# Run migrations
 from django.core.management import call_command
 
-print("📦 Running migrations with fresh database connection...")
+print("📦 Running migrations...")
 call_command("migrate", "--noinput")
 print("✅ Migrations completed successfully!")
