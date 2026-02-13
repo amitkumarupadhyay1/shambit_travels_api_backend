@@ -399,9 +399,7 @@ except ImportError:
 # Force Cloudinary storage if enabled (MUST be after storage.py import)
 # This ensures Cloudinary is actually used instead of FileSystemStorage
 if os.environ.get("USE_CLOUDINARY") == "True":
-    DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
-
-    # Also set STORAGES for Django 4.2+ compatibility
+    # Use STORAGES for Django 4.2+ (DEFAULT_FILE_STORAGE is deprecated)
     STORAGES = {
         "default": {
             "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",

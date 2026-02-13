@@ -20,9 +20,6 @@ if os.environ.get("USE_CLOUDINARY") == "True":
         secure=True,
     )
 
-    # Use Cloudinary for media files
-    DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
-
     # Free tier optimization settings
     CLOUDINARY_STORAGE = {
         "CLOUD_NAME": os.environ.get("CLOUDINARY_CLOUD_NAME"),
@@ -50,6 +47,13 @@ elif os.environ.get("USE_S3") == "True":
         "CacheControl": "max-age=86400",
     }
 
-    # Media files
-    DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+    # S3 storage configuration for Django 4.2+
+    STORAGES = {
+        "default": {
+            "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+        },
+        "staticfiles": {
+            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        },
+    }
     MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/media/"
