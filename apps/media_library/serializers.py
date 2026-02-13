@@ -25,6 +25,7 @@ class MediaSerializer(serializers.ModelSerializer):
     file_type = serializers.SerializerMethodField()
     is_image = serializers.SerializerMethodField()
     image_dimensions = serializers.SerializerMethodField()
+    responsive_urls = serializers.SerializerMethodField()
 
     class Meta:
         model = Media
@@ -36,6 +37,7 @@ class MediaSerializer(serializers.ModelSerializer):
             "file_type",
             "is_image",
             "image_dimensions",
+            "responsive_urls",
             "alt_text",
             "title",
             "content_type",
@@ -52,6 +54,7 @@ class MediaSerializer(serializers.ModelSerializer):
             "file_type",
             "is_image",
             "image_dimensions",
+            "responsive_urls",
         ]
 
     def get_file_url(self, obj):
@@ -99,6 +102,64 @@ class MediaSerializer(serializers.ModelSerializer):
             except (OSError, ValueError, AttributeError):
                 return None
         return None
+
+    def get_responsive_urls(self, obj):
+        """
+        Generate responsive image URLs for different screen sizes
+        Only for images, returns None for other file types
+
+        Uses Cloudinary transformations when available for automatic
+        format optimization (WebP, AVIF) and quality adjustment
+        """
+        if not obj.file or not self.get_is_image(obj):
+            return None
+
+        # Check if using Cloudinary
+        if hasattr(obj.file, "url") and "cloudinary" in obj.file.url:
+            base_url = obj.file.url
+
+            # Generate Cloudinary transformation URLs
+            return {
+                "thumbnail": self._cloudinary_transform(
+                    base_url, "c_fill,w_150,h_150,q_auto,f_auto"
+                ),
+                "small": self._cloudinary_transform(
+                    base_url, "c_limit,w_640,q_auto,f_auto"
+                ),
+                "medium": self._cloudinary_transform(
+                    base_url, "c_limit,w_1024,q_auto,f_auto"
+                ),
+                "large": self._cloudinary_transform(
+                    base_url, "c_limit,w_1920,q_auto,f_auto"
+                ),
+                "mobile": self._cloudinary_transform(
+                    base_url, "c_limit,w_768,q_auto,f_auto,dpr_2.0"
+                ),
+                "tablet": self._cloudinary_transform(
+                    base_url, "c_limit,w_1024,q_auto,f_auto,dpr_2.0"
+                ),
+                "original": base_url,
+            }
+
+        # For local storage, return original only
+        return {"original": obj.file.url if obj.file else None}
+
+    def _cloudinary_transform(self, url: str, transformation: str) -> str:
+        """
+        Apply Cloudinary transformation to URL
+
+        Args:
+            url: Original Cloudinary URL
+            transformation: Transformation string (e.g., 'c_fill,w_150,h_150')
+
+        Returns:
+            Transformed URL
+        """
+        # Cloudinary URL format: .../upload/v123/path.jpg
+        # Insert transformation: .../upload/transformation/v123/path.jpg
+        if "/upload/" in url:
+            return url.replace("/upload/", f"/upload/{transformation}/")
+        return url
 
 
 class MediaListSerializer(serializers.ModelSerializer):

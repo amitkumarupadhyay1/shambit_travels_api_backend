@@ -154,6 +154,28 @@ class MediaValidator:
 class MediaProcessor:
     """
     Utility class for processing media files
+
+    THUMBNAIL STRATEGY:
+
+    When using Cloudinary (recommended):
+    - Thumbnails are generated on-the-fly using URL transformations
+    - No local storage needed
+    - Automatic format optimization (WebP for supported browsers)
+    - Automatic quality optimization
+    - CDN caching for performance
+
+    When using local storage:
+    - Thumbnails are generated and saved locally
+    - Stored in media/library/thumbnails/
+    - Manual cleanup required
+
+    Benefits of Cloudinary approach:
+    1. No storage overhead
+    2. Responsive images automatically
+    3. Format optimization (WebP, AVIF)
+    4. Quality optimization based on device
+    5. CDN delivery worldwide
+    6. No manual cleanup needed
     """
 
     def process_media(self, media: Media) -> Dict[str, Any]:
@@ -278,6 +300,102 @@ class MediaProcessor:
         except Exception as e:
             print(f"Error generating thumbnail: {e}")
             return None
+
+    def generate_cloudinary_thumbnail(
+        self, media: Media, width: int = 300, height: int = 200
+    ) -> Optional[str]:
+        """
+        Generate thumbnail URL using Cloudinary transformations (no local storage needed)
+
+        Args:
+            media: Media object
+            width: Thumbnail width
+            height: Thumbnail height
+
+        Returns:
+            Cloudinary thumbnail URL or None
+        """
+        if not media.file or not self._get_file_type(media.file.name) == "image":
+            return None
+
+        # Check if using Cloudinary
+        if hasattr(media.file, "url") and "cloudinary" in media.file.url:
+            # Use Cloudinary transformation instead of generating local thumbnail
+            transformation = f"c_fill,w_{width},h_{height},q_auto,f_auto"
+
+            if "/upload/" in media.file.url:
+                thumbnail_url = media.file.url.replace(
+                    "/upload/", f"/upload/{transformation}/"
+                )
+                return thumbnail_url
+
+        # Fallback to local thumbnail generation for non-Cloudinary storage
+        return self.generate_thumbnail(media, width, height)
+
+    def get_responsive_image_urls(self, media: Media) -> Dict[str, str]:
+        """
+        Get responsive image URLs for different devices
+        Uses Cloudinary transformations for automatic format and quality optimization
+
+        Args:
+            media: Media object
+
+        Returns:
+            Dictionary with responsive URLs for different screen sizes
+        """
+        if not media.file or not self._get_file_type(media.file.name) == "image":
+            return {}
+
+        if hasattr(media.file, "url") and "cloudinary" in media.file.url:
+            base_url = media.file.url
+
+            return {
+                # Mobile devices
+                "mobile_small": self._apply_transformation(
+                    base_url, "c_limit,w_480,q_auto,f_auto"
+                ),
+                "mobile_large": self._apply_transformation(
+                    base_url, "c_limit,w_768,q_auto,f_auto"
+                ),
+                # Tablets
+                "tablet": self._apply_transformation(
+                    base_url, "c_limit,w_1024,q_auto,f_auto"
+                ),
+                # Desktop
+                "desktop": self._apply_transformation(
+                    base_url, "c_limit,w_1920,q_auto,f_auto"
+                ),
+                # Thumbnails
+                "thumbnail_small": self._apply_transformation(
+                    base_url, "c_fill,w_150,h_150,q_auto,f_auto"
+                ),
+                "thumbnail_medium": self._apply_transformation(
+                    base_url, "c_fill,w_300,h_200,q_auto,f_auto"
+                ),
+                "thumbnail_large": self._apply_transformation(
+                    base_url, "c_fill,w_600,h_400,q_auto,f_auto"
+                ),
+                # Original
+                "original": base_url,
+            }
+
+        # For local storage, return original only
+        return {"original": media.file.url if media.file else None}
+
+    def _apply_transformation(self, url: str, transformation: str) -> str:
+        """
+        Apply Cloudinary transformation to URL
+
+        Args:
+            url: Original Cloudinary URL
+            transformation: Transformation string
+
+        Returns:
+            Transformed URL
+        """
+        if "/upload/" in url:
+            return url.replace("/upload/", f"/upload/{transformation}/")
+        return url
 
     def optimize_media(self, media: Media) -> Dict[str, Any]:
         """

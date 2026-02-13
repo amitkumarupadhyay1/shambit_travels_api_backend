@@ -1,6 +1,8 @@
 import os
 
+from django import forms
 from django.contrib import admin, messages
+from django.contrib.contenttypes.models import ContentType
 from django.db.models import Count
 from django.shortcuts import redirect, render
 from django.urls import path, reverse
@@ -12,8 +14,63 @@ from .services.media_service import MediaService
 from .utils import MediaUtils
 
 
+class MediaAdminForm(forms.ModelForm):
+    """
+    Custom form for better admin UX with helpful guidance
+    """
+
+    content_type = forms.ModelChoiceField(
+        queryset=ContentType.objects.filter(
+            app_label__in=["cities", "articles", "packages"]
+        ),
+        required=False,
+        help_text="Select what type of content this media belongs to (City, Article, or Package)",
+        label="Attach to Content Type",
+        empty_label="-- Not attached to any content --",
+    )
+
+    object_id = forms.IntegerField(
+        required=False,
+        help_text="Enter the ID of the specific item. Find IDs in the respective admin sections.",
+        label="Content ID",
+        widget=forms.NumberInput(
+            attrs={"placeholder": "Enter ID after selecting content type above"}
+        ),
+    )
+
+    class Meta:
+        model = Media
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Add helpful placeholder and help text
+        self.fields["title"].help_text = (
+            "Descriptive title for this media file (e.g., 'Paris Eiffel Tower View')"
+        )
+        self.fields["title"].widget.attrs[
+            "placeholder"
+        ] = "Enter a descriptive title..."
+
+        self.fields["alt_text"].help_text = (
+            "Alternative text for accessibility - describes the image for screen readers and SEO"
+        )
+        self.fields["alt_text"].widget.attrs[
+            "placeholder"
+        ] = "Describe what's in the image..."
+
+        self.fields["file"].help_text = format_html(
+            "<strong>Allowed file types:</strong><br>"
+            "📷 <strong>Images:</strong> JPG, PNG, GIF, WebP (max 5MB)<br>"
+            "🎥 <strong>Videos:</strong> MP4, MOV, AVI (max 50MB)<br>"
+            "📄 <strong>Documents:</strong> PDF (max 10MB)"
+        )
+
+
 @admin.register(Media)
 class MediaAdmin(admin.ModelAdmin):
+    form = MediaAdminForm
     list_display = [
         "thumbnail_preview",
         "title_with_filename",
@@ -147,77 +204,177 @@ class MediaAdmin(admin.ModelAdmin):
     file_size_display.short_description = "Size"
 
     def content_object_link(self, obj):
-        """Show link to the content object"""
+        """Enhanced display with object name instead of just ID"""
         try:
             if obj.content_object:
+                # Get the actual object
+                content_obj = obj.content_object
+                obj_name = str(content_obj)
+
+                # Try to get admin URL
                 try:
                     url = reverse(
                         f"admin:{obj.content_type.app_label}_{obj.content_type.model}_change",
                         args=[obj.object_id],
                     )
                     return format_html(
-                        '<a href="{}" target="_blank">{}</a><br><small>{}</small>',
+                        '<div style="line-height: 1.6;">'
+                        '<a href="{}" target="_blank" style="font-weight: 600; color: #0066cc; text-decoration: none;">'
+                        "📎 {}</a><br>"
+                        '<small style="color: #666;">Type: {} | ID: {}</small>'
+                        "</div>",
                         url,
-                        str(obj.content_object),
-                        f"{obj.content_type.app_label}.{obj.content_type.model}",
+                        obj_name,
+                        obj.content_type.model.replace("_", " ").title(),
+                        obj.object_id,
                     )
                 except Exception:
                     return format_html(
-                        "{}<br><small>{}</small>",
-                        str(obj.content_object),
-                        f"{obj.content_type.app_label}.{obj.content_type.model}",
+                        '<div style="line-height: 1.6;">'
+                        '<span style="font-weight: 600;">📎 {}</span><br>'
+                        '<small style="color: #666;">Type: {} | ID: {}</small>'
+                        "</div>",
+                        obj_name,
+                        obj.content_type.model.replace("_", " ").title(),
+                        obj.object_id,
                     )
-            return format_html('<span style="color: #999;">Not attached</span>')
-        except Exception:
-            return format_html('<span style="color: #f57c00;">Error loading</span>')
+            return format_html(
+                '<div style="line-height: 1.6;">'
+                '<span style="color: #999; font-style: italic;">🔓 Not attached</span><br>'
+                '<small style="color: #666;">This media is available but not linked to any content</small>'
+                "</div>"
+            )
+        except Exception as e:
+            return format_html(
+                '<span style="color: #f57c00;">⚠️ Error loading</span><br>'
+                '<small style="color: #666;">{}</small>',
+                str(e),
+            )
 
     content_object_link.short_description = "Attached To"
 
     def file_info_display(self, obj):
-        """Show detailed file information"""
+        """Enhanced file information with clear labels and helpful explanations"""
         if not obj.file:
-            return "No file uploaded"
+            return format_html(
+                '<div style="background: #fff3cd; padding: 12px; border-radius: 4px; border-left: 4px solid #ffc107;">'
+                "<strong>⚠️ No file uploaded</strong><br>"
+                "<small>Upload a file to see its information</small>"
+                "</div>"
+            )
 
         try:
+            # Basic file info
             file_size = MediaUtils.format_file_size(obj.file.size)
             file_name = os.path.basename(obj.file.name)
+            file_extension = os.path.splitext(file_name)[1].upper()
 
             info_html = f"""
-            <div style="background: #f8f9fa; padding: 10px; border-radius: 4px;">
-                <p><strong>File:</strong> {file_name}</p>
-                <p><strong>Size:</strong> {file_size}</p>
+            <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #dee2e6;">
+                <h4 style="margin-top: 0; color: #495057; font-size: 14px;">📄 File Details</h4>
+                
+                <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                    <tr style="border-bottom: 1px solid #dee2e6;">
+                        <td style="padding: 8px 0; font-weight: 600; width: 140px; color: #495057;">File Name:</td>
+                        <td style="padding: 8px 0; color: #212529;">{file_name}</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #dee2e6;">
+                        <td style="padding: 8px 0; font-weight: 600; color: #495057;">File Type:</td>
+                        <td style="padding: 8px 0; color: #212529;">{file_extension} file</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #dee2e6;">
+                        <td style="padding: 8px 0; font-weight: 600; color: #495057;">File Size:</td>
+                        <td style="padding: 8px 0; color: #212529;">{file_size}</td>
+                    </tr>
             """
 
-            # Try to get file path (may not work with Cloudinary)
-            try:
-                file_path = obj.file.path
-                info_html += f"<p><strong>Path:</strong> <code>{file_path}</code></p>"
-            except (NotImplementedError, AttributeError):
-                # Cloudinary doesn't support .path
-                info_html += f"<p><strong>URL:</strong> <code>{obj.file.url}</code></p>"
+            # Storage location
+            if "cloudinary" in obj.file.url:
+                info_html += f"""
+                    <tr style="border-bottom: 1px solid #dee2e6;">
+                        <td style="padding: 8px 0; font-weight: 600; color: #495057;">Storage:</td>
+                        <td style="padding: 8px 0;">
+                            <span style="background: #d4edda; color: #155724; padding: 3px 8px; border-radius: 3px; font-size: 12px;">
+                                ☁️ Cloudinary (Cloud Storage)
+                            </span>
+                        </td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #dee2e6;">
+                        <td style="padding: 8px 0; font-weight: 600; color: #495057;">Public URL:</td>
+                        <td style="padding: 8px 0;">
+                            <a href="{obj.file.url}" target="_blank" style="color: #007bff; word-break: break-all; font-size: 12px;">
+                                View on Cloudinary →
+                            </a>
+                        </td>
+                    </tr>
+                """
+            else:
+                try:
+                    file_path = obj.file.path
+                    info_html += f"""
+                    <tr style="border-bottom: 1px solid #dee2e6;">
+                        <td style="padding: 8px 0; font-weight: 600; color: #495057;">Storage:</td>
+                        <td style="padding: 8px 0;">
+                            <span style="background: #fff3cd; color: #856404; padding: 3px 8px; border-radius: 3px; font-size: 12px;">
+                                💾 Local Server Storage
+                            </span>
+                        </td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #dee2e6;">
+                        <td style="padding: 8px 0; font-weight: 600; color: #495057;">Server Path:</td>
+                        <td style="padding: 8px 0;"><code style="background: #e9ecef; padding: 2px 6px; border-radius: 3px; font-size: 11px; word-break: break-all;">{file_path}</code></td>
+                    </tr>
+                    """
+                except (NotImplementedError, AttributeError):
+                    pass
 
-            # Add image-specific info
+            # Image-specific info
             if MediaUtils.is_image_file(obj.file.name):
                 try:
-                    # Try to get image info if file has a path
                     if hasattr(obj.file, "path"):
                         image_info = MediaUtils.get_image_info(obj.file.path)
                         if image_info:
                             info_html += f"""
-                            <p><strong>Dimensions:</strong> {image_info['width']} × {image_info['height']}</p>
-                            <p><strong>Format:</strong> {image_info['format']}</p>
-                            <p><strong>Mode:</strong> {image_info['mode']}</p>
+                    <tr style="border-bottom: 1px solid #dee2e6;">
+                        <td style="padding: 8px 0; font-weight: 600; color: #495057;">Dimensions:</td>
+                        <td style="padding: 8px 0; color: #212529;">{image_info['width']} × {image_info['height']} pixels</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #dee2e6;">
+                        <td style="padding: 8px 0; font-weight: 600; color: #495057;">Image Format:</td>
+                        <td style="padding: 8px 0; color: #212529;">{image_info['format']}</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #dee2e6;">
+                        <td style="padding: 8px 0; font-weight: 600; color: #495057;">Color Mode:</td>
+                        <td style="padding: 8px 0; color: #212529;">{image_info['mode']}</td>
+                    </tr>
                             """
                 except Exception:
                     pass
 
-            info_html += "</div>"
+            # Upload date
+            info_html += f"""
+                    <tr>
+                        <td style="padding: 8px 0; font-weight: 600; color: #495057;">Uploaded:</td>
+                        <td style="padding: 8px 0; color: #212529;">{obj.created_at.strftime('%B %d, %Y at %I:%M %p')}</td>
+                    </tr>
+                </table>
+                
+                <div style="margin-top: 12px; padding: 10px; background: #e7f3ff; border-radius: 4px; border-left: 3px solid #0066cc;">
+                    <small style="color: #004085; font-size: 12px;">
+                        <strong>💡 Usage Tip:</strong> This file is publicly accessible via the URL above. 
+                        {'For responsive images, the system automatically generates optimized versions for different devices.' if MediaUtils.is_image_file(obj.file.name) and 'cloudinary' in obj.file.url else 'Copy the URL to use this file in your content.'}
+                    </small>
+                </div>
+            </div>
+            """
+
             return format_html(info_html)
 
         except Exception as e:
             return format_html(
-                '<div style="background: #ffebee; padding: 10px; border-radius: 4px; color: #c62828;">'
-                "File information unavailable: {}"
+                '<div style="background: #ffebee; padding: 12px; border-radius: 4px; border-left: 4px solid #c62828;">'
+                "<strong>⚠️ Error loading file information</strong><br>"
+                '<small style="color: #666;">{}</small>'
                 "</div>",
                 str(e),
             )

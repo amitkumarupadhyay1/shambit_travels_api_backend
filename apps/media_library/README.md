@@ -24,6 +24,9 @@ A comprehensive media management system for the travel platform with production-
 - `PATCH /api/media/{id}/` - Partial update media metadata
 - `DELETE /api/media/{id}/` - Delete media file
 
+#### File Type Information
+- `GET /api/media/allowed_file_types/` - Get allowed file types, size limits, and descriptions
+
 #### Custom Media Actions
 - `GET /api/media/gallery/?page=1&page_size=20` - Gallery view with pagination
 - `GET /api/media/by_content_type/` - Get media grouped by content type
@@ -201,6 +204,39 @@ class Media(models.Model):
 ```
 
 ### Usage Examples
+
+#### Check Allowed File Types Before Upload
+```javascript
+// Get allowed file types information
+const response = await fetch('/api/media/allowed_file_types/');
+const data = await response.json();
+
+console.log(data.file_types);
+// {
+//   images: { extensions: '.jpg, .jpeg, .png, .gif, .webp', max_size: '5 MB', ... },
+//   videos: { extensions: '.mp4, .avi, .mov, .wmv, .flv', max_size: '50 MB', ... },
+//   documents: { extensions: '.pdf', max_size: '10 MB', ... }
+// }
+```
+
+#### Use Responsive Images (Cloudinary)
+```javascript
+// Get media with responsive URLs
+const media = await fetch('/api/media/123/').then(r => r.json());
+
+// Use in responsive image component
+<picture>
+  <source media="(max-width: 640px)" srcSet={media.responsive_urls.small} />
+  <source media="(max-width: 1024px)" srcSet={media.responsive_urls.medium} />
+  <source media="(min-width: 1025px)" srcSet={media.responsive_urls.large} />
+  <img src={media.responsive_urls.original} alt={media.alt_text} loading="lazy" />
+</picture>
+
+// Or use specific sizes
+<img src={media.responsive_urls.thumbnail} alt={media.alt_text} />
+<img src={media.responsive_urls.mobile} alt={media.alt_text} />
+<img src={media.responsive_urls.tablet} alt={media.alt_text} />
+```
 
 #### Frontend Integration
 ```javascript

@@ -456,6 +456,28 @@ class MediaViewSet(viewsets.ModelViewSet):
         return Response(content_types)
 
     @action(detail=False, methods=["get"])
+    def allowed_file_types(self, request):
+        """
+        Get information about allowed file types for upload
+        GET /api/media/allowed_file_types/
+
+        Returns detailed information about:
+        - Allowed file extensions
+        - Maximum file sizes
+        - File type descriptions
+        - Use cases and examples
+        """
+        from .constants import get_file_type_info
+
+        return Response(
+            {
+                "file_types": get_file_type_info(),
+                "note": "These limits apply to all uploads. Files exceeding limits will be rejected.",
+                "recommendation": "For best performance, use JPG or WebP for images, MP4 for videos.",
+            }
+        )
+
+    @action(detail=False, methods=["get"])
     def health(self, request):
         """
         Health check for media storage
