@@ -16,9 +16,8 @@ python manage.py check --deploy
 
 # Run migrations
 echo "📦 Running migrations..."
-# Force close any existing database connections before migrating
-python -c "import django; django.setup(); from django.db import connections; connections.close_all()" 2>/dev/null || true
-python manage.py migrate --noinput
+# Use custom migration script that ensures proper database connection
+python force_migrate.py
 
 # Collect static files
 echo "📁 Collecting static files..."
