@@ -1,0 +1,61 @@
+# Railway Environment Variables
+# Copy these to your Railway project's Variables section
+# IMPORTANT: Update the DATABASE_URL in Railway to remove channel_binding=require
+
+# Database - CRITICAL FIX: Remove channel_binding=require from the URL
+DATABASE_URL=postgresql://neondb_owner:npg_VyDnfoCEu46z@ep-solitary-cell-ahfvkw6i-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require
+
+# Django Core Settings
+DEBUG=False
+SECRET_KEY=ma(inrtl&qlc_+8pf4(z&i6cg^j#y&s$26$iisim4re@mro8@2
+ALLOWED_HOSTS=shambit.up.railway.app,*.railway.app,healthcheck.railway.app,localhost,127.0.0.1
+
+# Security Settings
+SECURE_SSL_REDIRECT=False
+SESSION_COOKIE_SECURE=True
+CSRF_COOKIE_SECURE=True
+
+# CORS Settings
+CORS_ALLOW_ALL_ORIGINS=True
+
+# Logging
+DJANGO_LOG_LEVEL=INFO
+
+# Email Configuration (Update with your actual SMTP credentials)
+EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USE_TLS=True
+EMAIL_HOST_USER=your-email@gmail.com
+EMAIL_HOST_PASSWORD=your-app-password
+DEFAULT_FROM_EMAIL=noreply@shambit.com
+
+# OAuth (Update with your actual OAuth credentials)
+GOOGLE_OAUTH_CLIENT_ID=your-google-oauth-client-id
+GOOGLE_OAUTH_CLIENT_SECRET=your-google-oauth-client-secret
+GITHUB_OAUTH_CLIENT_ID=your-github-oauth-client-id
+GITHUB_OAUTH_CLIENT_SECRET=your-github-oauth-client-secret
+
+# Razorpay (Update with your actual Razorpay credentials)
+RAZORPAY_KEY_ID=rzp_live_your_key_id
+RAZORPAY_KEY_SECRET=your_razorpay_secret
+RAZORPAY_WEBHOOK_SECRET=your_webhook_secret
+
+# Railway Volume for Media Storage
+RAILWAY_VOLUME_MOUNT_PATH=/app/media-volume
+
+# Cloudinary Configuration (Your actual credentials)
+USE_CLOUDINARY=True
+CLOUDINARY_CLOUD_NAME=dbwwux9fe
+CLOUDINARY_API_KEY=768525384291571
+CLOUDINARY_API_SECRET=1SZlRAJyCsvyfsxasiBb1E8c-XA
+
+# Optional - Remove these if not using Redis on Railway
+# REDIS_URL=redis://localhost:6379/1
+
+# Optional - Remove these as they're not needed when using DATABASE_URL
+# DB_HOST=localhost
+# DB_NAME=travel_platform
+# DB_PASSWORD=secure_password
+# DB_PORT=5432
+# DB_USER=postgres

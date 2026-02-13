@@ -43,21 +43,27 @@ if DATABASE_URL:
         conn_health_checks=True,
     )
 
-    # Ensure ENGINE is explicitly set
-    if not db_config.get("ENGINE"):
-        db_config["ENGINE"] = "django.db.backends.postgresql"
-
-    # Ensure all required keys are present
-    if not db_config.get("NAME"):
-        print("⚠️ WARNING: Database NAME not parsed from URL")
-
-    DATABASES = {"default": db_config}
+    # CRITICAL: Explicitly construct DATABASES dict with ENGINE first
+    # This ensures ENGINE is always present and not accidentally removed
+    DATABASES = {
+        "default": {
+            "ENGINE": db_config.get("ENGINE") or "django.db.backends.postgresql",
+            "NAME": db_config.get("NAME", ""),
+            "USER": db_config.get("USER", ""),
+            "PASSWORD": db_config.get("PASSWORD", ""),
+            "HOST": db_config.get("HOST", ""),
+            "PORT": db_config.get("PORT", "5432"),
+            "CONN_MAX_AGE": db_config.get("CONN_MAX_AGE", 600),
+            "CONN_HEALTH_CHECKS": db_config.get("CONN_HEALTH_CHECKS", True),
+            "OPTIONS": db_config.get("OPTIONS", {}),
+        }
+    }
 
     print(f"✅ Database configured with URL: {DATABASE_URL[:50]}...")
-    print(f"✅ Database ENGINE: {db_config.get('ENGINE')}")
-    print(f"✅ Database NAME: {db_config.get('NAME')}")
-    print(f"✅ Database HOST: {db_config.get('HOST')}")
-    print(f"✅ Full config keys: {list(db_config.keys())}")
+    print(f"✅ Database ENGINE: {DATABASES['default']['ENGINE']}")
+    print(f"✅ Database NAME: {DATABASES['default']['NAME']}")
+    print(f"✅ Database HOST: {DATABASES['default']['HOST']}")
+    print(f"✅ Full config keys: {list(DATABASES['default'].keys())}")
 else:
     # This should not happen in production
     print("❌ CRITICAL: No DATABASE_URL environment variable found!")
