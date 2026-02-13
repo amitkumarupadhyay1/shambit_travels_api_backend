@@ -225,10 +225,28 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:5173",
     "http://localhost:7173",
+    "http://192.168.29.45:3000",
+    "http://192.168.29.45:5173",
+    "http://192.168.29.45:7173",
     "https://yourdomain.com",
 ]
 
+# Allow all origins from local network for development
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^http://192\.168\.\d{1,3}\.\d{1,3}:\d+$",  # Local network IPs
+]
+
 CORS_ALLOW_CREDENTIALS = True
+
+# CSRF trusted origins for mobile and local network access
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://localhost:7173",
+    "http://192.168.29.45:3000",
+    "http://192.168.29.45:5173",
+    "http://192.168.29.45:7173",
+]
 
 # Rate limiting settings
 RATELIMIT_ENABLE = True
