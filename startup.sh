@@ -2,6 +2,9 @@
 
 set -e  # Exit on any error
 
+# CRITICAL: Ensure DJANGO_SETTINGS_MODULE is set globally
+export DJANGO_SETTINGS_MODULE=backend.settings.production
+
 echo "🚀 Starting Django application..."
 echo "Environment: $DJANGO_SETTINGS_MODULE"
 echo "Port: $PORT"

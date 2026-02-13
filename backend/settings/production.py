@@ -236,3 +236,14 @@ LOGGING = {
 
 # Django Admin settings for production
 ADMIN_URL = "admin/"
+
+# CRITICAL DEBUG: Verify DATABASES is still set correctly at end of settings load
+print("=" * 80)
+print("🔥 FINAL DATABASES CHECK (end of production.py):")
+print(f"🔥 DATABASES keys: {list(DATABASES.keys())}")
+print(f"🔥 DATABASES['default'] keys: {list(DATABASES['default'].keys())}")
+print(f"🔥 DATABASES['default']['ENGINE']: {DATABASES['default'].get('ENGINE')}")
+print(f"🔥 DATABASES['default']['NAME']: {DATABASES['default'].get('NAME')}")
+print(f"🔥 DATABASES['default']['HOST']: {DATABASES['default'].get('HOST')}")
+print(f"🔥 DATABASES object id: {id(DATABASES)}")
+print("=" * 80)

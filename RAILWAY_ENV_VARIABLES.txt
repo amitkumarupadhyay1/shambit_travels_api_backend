@@ -11,6 +11,9 @@
 # CORRECT (update to this):
 DATABASE_URL=postgresql://neondb_owner:npg_VyDnfoCEu46z@ep-solitary-cell-ahfvkw6i-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require
 
+# ⚠️ CRITICAL: Django Settings Module (MUST BE SET)
+DJANGO_SETTINGS_MODULE=backend.settings.production
+
 # Django Core Settings
 DEBUG=False
 SECRET_KEY=ma(inrtl&qlc_+8pf4(z&i6cg^j#y&s$26$iisim4re@mro8@2
