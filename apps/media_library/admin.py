@@ -29,13 +29,25 @@ class MediaAdminForm(forms.ModelForm):
         empty_label="-- Not attached to any content --",
     )
 
+    # Dynamic object selection field
+    content_object_display = forms.CharField(
+        required=False,
+        label="Select Content Object",
+        help_text="Start typing to search and select the object",
+        widget=forms.TextInput(
+            attrs={
+                "placeholder": "First select a content type above, then search here...",
+                "class": "vTextField",
+                "id": "id_content_object_search",
+                "autocomplete": "off",
+            }
+        ),
+    )
+
     object_id = forms.IntegerField(
         required=False,
-        help_text="Enter the ID of the specific item. Find IDs in the respective admin sections.",
-        label="Content ID",
-        widget=forms.NumberInput(
-            attrs={"placeholder": "Enter ID after selecting content type above"}
-        ),
+        label="Content ID (Auto-filled)",
+        widget=forms.HiddenInput(),  # Hide this field, it will be auto-populated
     )
 
     class Meta:
@@ -67,6 +79,17 @@ class MediaAdminForm(forms.ModelForm):
             "📄 <strong>Documents:</strong> PDF (max 10MB)"
         )
 
+        # If editing existing media with content_object, populate the display field
+        if self.instance and self.instance.pk and self.instance.content_object:
+            self.fields["content_object_display"].initial = str(
+                self.instance.content_object
+            )
+            self.fields["content_object_display"].widget.attrs["readonly"] = False
+
+    class Media:
+        css = {"all": ("admin/css/media_admin_custom.css",)}
+        js = ("admin/js/media_admin_autocomplete.js",)
+
 
 @admin.register(Media)
 class MediaAdmin(admin.ModelAdmin):
@@ -91,8 +114,8 @@ class MediaAdmin(admin.ModelAdmin):
         (
             "Attachment",
             {
-                "fields": ("content_type", "object_id"),
-                "description": "Attach this media to a specific object",
+                "fields": ("content_type", "content_object_display", "object_id"),
+                "description": "Attach this media to a specific object. Select the content type, then search for the specific item.",
             },
         ),
         ("Timestamps", {"fields": ("created_at",), "classes": ("collapse",)}),
@@ -117,6 +140,11 @@ class MediaAdmin(admin.ModelAdmin):
                 "cleanup-media/",
                 self.admin_site.admin_view(self.cleanup_media_view),
                 name="media_cleanup",
+            ),
+            path(
+                "search-content-objects/",
+                self.admin_site.admin_view(self.search_content_objects),
+                name="media_search_content_objects",
             ),
         ]
         return custom_urls + urls
@@ -531,3 +559,73 @@ class MediaAdmin(admin.ModelAdmin):
         }
 
         return render(request, "admin/media_library/cleanup.html", context)
+
+    def search_content_objects(self, request):
+        """
+        AJAX endpoint to search for content objects
+        Returns JSON list of matching objects
+        """
+        from django.http import JsonResponse
+        from django.db.models import Q
+
+        content_type_id = request.GET.get("content_type_id")
+        search_query = request.GET.get("q", "")
+
+        if not content_type_id:
+            return JsonResponse({"results": []})
+
+        try:
+            content_type = ContentType.objects.get(id=content_type_id)
+            model_class = content_type.model_class()
+
+            # Search based on model type
+            results = []
+
+            if model_class.__name__ == "City":
+                # Search cities by name or slug
+                objects = model_class.objects.filter(
+                    Q(name__icontains=search_query) | Q(slug__icontains=search_query)
+                )[:20]
+                results = [
+                    {
+                        "id": obj.id,
+                        "text": f"{obj.name} ({obj.slug})",
+                        "name": obj.name,
+                    }
+                    for obj in objects
+                ]
+
+            elif model_class.__name__ == "Article":
+                # Search articles by title or slug
+                objects = model_class.objects.filter(
+                    Q(title__icontains=search_query) | Q(slug__icontains=search_query)
+                )[:20]
+                results = [
+                    {
+                        "id": obj.id,
+                        "text": f"{obj.title} ({obj.slug})",
+                        "title": obj.title,
+                    }
+                    for obj in objects
+                ]
+
+            elif model_class.__name__ == "Package":
+                # Search packages by name or slug
+                objects = model_class.objects.filter(
+                    Q(name__icontains=search_query) | Q(slug__icontains=search_query)
+                )[:20]
+                results = [
+                    {
+                        "id": obj.id,
+                        "text": f"{obj.name} ({obj.slug})",
+                        "name": obj.name,
+                    }
+                    for obj in objects
+                ]
+
+            return JsonResponse({"results": results})
+
+        except ContentType.DoesNotExist:
+            return JsonResponse({"results": []})
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=400)
