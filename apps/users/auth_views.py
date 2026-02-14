@@ -205,8 +205,20 @@ class ForgotPasswordView(APIView):
             except User.DoesNotExist:
                 # Don't reveal user existence? Security vs UX.
                 # For this app, maybe UX priority.
+                logger.warning(
+                    f"Password reset attempted for non-existent email: {email}"
+                )
                 return Response(
                     {"error": "User not found"}, status=status.HTTP_404_NOT_FOUND
+                )
+            except Exception as e:
+                logger.error(
+                    f"Unexpected error in forgot password for {email}: {str(e)}",
+                    exc_info=True,
+                )
+                return Response(
+                    {"error": "An error occurred. Please try again later."},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
