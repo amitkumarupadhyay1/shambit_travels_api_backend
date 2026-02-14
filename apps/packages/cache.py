@@ -146,8 +146,12 @@ def invalidate_package_cache(package_slug: str) -> None:
     Invalidate all cache entries related to a package
     """
     patterns = [
+        f"package:*{package_slug}*",
+        "packages:*",
+        f"price_range:*{package_slug}*",
+        # Legacy prefixes kept for backward compatibility
         f"api:package:*{package_slug}*",
-        f"api:packages:*",
+        "api:packages:*",
         f"api:price_range:*{package_slug}*",
     ]
 
@@ -161,11 +165,17 @@ def invalidate_experience_cache(experience_id: Optional[int] = None) -> None:
     """
     if experience_id:
         patterns = [
+            f"experience:*{experience_id}*",
+            "experiences:*",
+            # Legacy prefixes
             f"api:experience:*{experience_id}*",
-            f"api:experiences:*",
+            "api:experiences:*",
         ]
     else:
-        patterns = ["api:experiences:*"]
+        patterns = [
+            "experiences:*",
+            "api:experiences:*",
+        ]
 
     for pattern in patterns:
         invalidate_cache(pattern)

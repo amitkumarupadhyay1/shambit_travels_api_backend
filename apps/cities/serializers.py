@@ -1,3 +1,5 @@
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
 from articles.models import Article
 from media_library.models import Media
 from packages.models import Package
@@ -8,6 +10,8 @@ from .models import City, Highlight, TravelTip
 
 class CitySerializer(serializers.ModelSerializer):
     """Simple city serializer for list views"""
+
+    hero_image = serializers.SerializerMethodField()
 
     class Meta:
         model = City
@@ -22,6 +26,30 @@ class CitySerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+
+    def get_hero_image(self, obj):
+        if not obj.hero_image:
+            return None
+        return self._append_cache_buster(obj.hero_image.url, obj.updated_at)
+
+    def _append_cache_buster(self, url: str, version_source) -> str:
+        if not url or not version_source:
+            return url
+
+        timestamp = int(version_source.timestamp())
+        parts = urlsplit(url)
+        query_params = dict(parse_qsl(parts.query))
+        query_params["v"] = str(timestamp)
+
+        return urlunsplit(
+            (
+                parts.scheme,
+                parts.netloc,
+                parts.path,
+                urlencode(query_params),
+                parts.fragment,
+            )
+        )
 
 
 class HighlightSerializer(serializers.ModelSerializer):
@@ -62,6 +90,7 @@ class CityContextSerializer(serializers.ModelSerializer):
 
     # Generic media gallery
     gallery = serializers.SerializerMethodField()
+    hero_image = serializers.SerializerMethodField()
 
     class Meta:
         model = City
@@ -79,9 +108,33 @@ class CityContextSerializer(serializers.ModelSerializer):
             "meta_description",
         ]
 
+    def get_hero_image(self, obj):
+        if not obj.hero_image:
+            return None
+        return self._append_cache_buster(obj.hero_image.url, obj.updated_at)
+
     def get_gallery(self, obj):
         from django.contrib.contenttypes.models import ContentType
 
         content_type = ContentType.objects.get_for_model(obj)
         media_items = Media.objects.filter(content_type=content_type, object_id=obj.id)
         return MediaSerializer(media_items, many=True).data
+
+    def _append_cache_buster(self, url: str, version_source) -> str:
+        if not url or not version_source:
+            return url
+
+        timestamp = int(version_source.timestamp())
+        parts = urlsplit(url)
+        query_params = dict(parse_qsl(parts.query))
+        query_params["v"] = str(timestamp)
+
+        return urlunsplit(
+            (
+                parts.scheme,
+                parts.netloc,
+                parts.path,
+                urlencode(query_params),
+                parts.fragment,
+            )
+        )

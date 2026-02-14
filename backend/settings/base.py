@@ -355,6 +355,9 @@ SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
+# Fast2SMS settings for SMS OTP
+FAST2SMS_API_KEY = os.environ.get("FAST2SMS_API_KEY", "")
+
 # Email settings
 EMAIL_BACKEND = os.environ.get(
     "EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend"

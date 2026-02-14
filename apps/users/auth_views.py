@@ -176,7 +176,7 @@ class LoginWithOTPView(APIView):
 
 @extend_schema(tags=["Authentication"])
 class ForgotPasswordView(APIView):
-    """Initiate password reset via Email OTP"""
+    """Initiate password reset via SMS OTP"""
 
     permission_classes = [AllowAny]
 
@@ -184,36 +184,35 @@ class ForgotPasswordView(APIView):
     def post(self, request):
         serializer = ForgotPasswordSerializer(data=request.data)
         if serializer.is_valid():
-            email = serializer.validated_data["email"]
+            phone = serializer.validated_data["phone"]
             try:
-                user = User.objects.get(email=email)
+                user = User.objects.get(phone=phone)
                 otp = OTPService.generate_otp()
-                OTPService.store_otp(email, otp, purpose="reset_password")
+                OTPService.store_otp(phone, otp, purpose="reset_password")
 
-                # Send OTP via email
-                email_sent = EmailService.send_password_reset_email(email, otp)
+                # Send OTP via SMS
+                sms_sent = OTPService.send_otp(phone, otp)
 
-                if email_sent:
-                    logger.info(f"Password reset OTP sent to {email}")
-                    return Response({"message": "OTP sent to email"})
+                if sms_sent:
+                    logger.info(f"Password reset OTP sent to {phone}")
+                    return Response({"message": "OTP sent to your phone"})
                 else:
-                    logger.error(f"Failed to send password reset OTP to {email}")
+                    logger.error(f"Failed to send password reset OTP to {phone}")
                     return Response(
-                        {"error": "Failed to send email. Please try again."},
+                        {"error": "Failed to send SMS. Please try again."},
                         status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     )
             except User.DoesNotExist:
-                # Don't reveal user existence? Security vs UX.
-                # For this app, maybe UX priority.
                 logger.warning(
-                    f"Password reset attempted for non-existent email: {email}"
+                    f"Password reset attempted for non-existent phone: {phone}"
                 )
                 return Response(
-                    {"error": "User not found"}, status=status.HTTP_404_NOT_FOUND
+                    {"error": "User with this phone number not found"},
+                    status=status.HTTP_404_NOT_FOUND,
                 )
             except Exception as e:
                 logger.error(
-                    f"Unexpected error in forgot password for {email}: {str(e)}",
+                    f"Unexpected error in forgot password for {phone}: {str(e)}",
                     exc_info=True,
                 )
                 return Response(
@@ -225,7 +224,7 @@ class ForgotPasswordView(APIView):
 
 @extend_schema(tags=["Authentication"])
 class ResetPasswordView(APIView):
-    """Reset password using OTP"""
+    """Reset password using SMS OTP"""
 
     permission_classes = [AllowAny]
 
@@ -233,24 +232,27 @@ class ResetPasswordView(APIView):
     def post(self, request):
         serializer = ResetPasswordSerializer(data=request.data)
         if serializer.is_valid():
-            email = serializer.validated_data["email"]
+            phone = serializer.validated_data["phone"]
             otp = serializer.validated_data["otp"]
             password = serializer.validated_data["password"]
 
-            if OTPService.verify_otp(email, otp, purpose="reset_password"):
+            if OTPService.verify_otp(phone, otp, purpose="reset_password"):
                 try:
-                    user = User.objects.get(email=email)
+                    user = User.objects.get(phone=phone)
                     user.set_password(password)
                     user.save()
+                    logger.info(f"Password reset successful for {phone}")
                     return Response({"message": "Password reset successful"})
                 except User.DoesNotExist:
                     return Response(
-                        {"error": "User not found"}, status=status.HTTP_404_NOT_FOUND
+                        {"error": "User with this phone number not found"},
+                        status=status.HTTP_404_NOT_FOUND,
                     )
-
-            return Response(
-                {"error": "Invalid or expired OTP"}, status=status.HTTP_400_BAD_REQUEST
-            )
+            else:
+                return Response(
+                    {"error": "Invalid or expired OTP"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 

@@ -101,15 +101,15 @@ class LoginWithOTPSerializer(serializers.Serializer):
 
 
 class ForgotPasswordSerializer(serializers.Serializer):
-    """Serializer for forgot password request"""
+    """Serializer for forgot password request via SMS"""
 
-    email = serializers.EmailField()
+    phone = serializers.CharField(max_length=15)
 
 
 class ResetPasswordSerializer(serializers.Serializer):
-    """Serializer for resetting password with OTP"""
+    """Serializer for resetting password with OTP via SMS"""
 
-    email = serializers.EmailField()
+    phone = serializers.CharField(max_length=15)
     otp = serializers.CharField(max_length=6)
     password = serializers.CharField(write_only=True, min_length=8)
     password_confirm = serializers.CharField(write_only=True)

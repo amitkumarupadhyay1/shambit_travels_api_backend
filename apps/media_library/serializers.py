@@ -1,5 +1,6 @@
 import os
 from typing import Optional
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from django.contrib.contenttypes.models import ContentType
 from django.core.files.uploadedfile import InMemoryUploadedFile, TemporaryUploadedFile
@@ -46,10 +47,12 @@ class MediaSerializer(serializers.ModelSerializer):
             "content_type_name",
             "content_object_str",
             "created_at",
+            "updated_at",
         ]
         read_only_fields = [
             "id",
             "created_at",
+            "updated_at",
             "file_url",
             "file_size",
             "file_type",
@@ -63,8 +66,10 @@ class MediaSerializer(serializers.ModelSerializer):
         if obj.file:
             request = self.context.get("request")
             if request:
-                return request.build_absolute_uri(obj.file.url)
-            return obj.file.url
+                return self._append_cache_buster(
+                    request.build_absolute_uri(obj.file.url), obj
+                )
+            return self._append_cache_buster(obj.file.url, obj)
         return None
 
     def get_file_size(self, obj) -> Optional[int]:
@@ -98,10 +103,21 @@ class MediaSerializer(serializers.ModelSerializer):
         """Get image dimensions if it's an image"""
         if self.get_is_image(obj) and obj.file:
             try:
-                with Image.open(obj.file.path) as img:
+                width = getattr(obj.file, "width", None)
+                height = getattr(obj.file, "height", None)
+                if width and height:
+                    return {"width": width, "height": height}
+
+                obj.file.open("rb")
+                with Image.open(obj.file) as img:
                     return {"width": img.width, "height": img.height}
             except (OSError, ValueError, AttributeError):
                 return None
+            finally:
+                try:
+                    obj.file.close()
+                except Exception:
+                    pass
         return None
 
     def get_responsive_urls(self, obj) -> Optional[dict]:
@@ -120,7 +136,7 @@ class MediaSerializer(serializers.ModelSerializer):
             base_url = obj.file.url
 
             # Generate Cloudinary transformation URLs
-            return {
+            urls = {
                 "thumbnail": self._cloudinary_transform(
                     base_url, "c_fill,w_150,h_150,q_auto,f_auto"
                 ),
@@ -141,9 +157,17 @@ class MediaSerializer(serializers.ModelSerializer):
                 ),
                 "original": base_url,
             }
+            return {
+                key: self._append_cache_buster(value, obj)
+                for key, value in urls.items()
+            }
 
         # For local storage, return original only
-        return {"original": obj.file.url if obj.file else None}
+        return {
+            "original": (
+                self._append_cache_buster(obj.file.url, obj) if obj.file else None
+            )
+        }
 
     def _cloudinary_transform(self, url: str, transformation: str) -> str:
         """
@@ -161,6 +185,34 @@ class MediaSerializer(serializers.ModelSerializer):
         if "/upload/" in url:
             return url.replace("/upload/", f"/upload/{transformation}/")
         return url
+
+    def _append_cache_buster(self, url: str, obj) -> str:
+        """
+        Append version query param based on model update timestamp.
+        """
+        if not url:
+            return url
+
+        updated_at = getattr(obj, "updated_at", None) or getattr(
+            obj, "created_at", None
+        )
+        if not updated_at:
+            return url
+
+        timestamp = int(updated_at.timestamp())
+        parts = urlsplit(url)
+        query_params = dict(parse_qsl(parts.query))
+        query_params["v"] = str(timestamp)
+
+        return urlunsplit(
+            (
+                parts.scheme,
+                parts.netloc,
+                parts.path,
+                urlencode(query_params),
+                parts.fragment,
+            )
+        )
 
 
 class MediaListSerializer(serializers.ModelSerializer):
@@ -191,8 +243,10 @@ class MediaListSerializer(serializers.ModelSerializer):
         if obj.file:
             request = self.context.get("request")
             if request:
-                return request.build_absolute_uri(obj.file.url)
-            return obj.file.url
+                return self._append_cache_buster(
+                    request.build_absolute_uri(obj.file.url), obj
+                )
+            return self._append_cache_buster(obj.file.url, obj)
         return None
 
     def get_file_type(self, obj) -> Optional[str]:
@@ -208,6 +262,31 @@ class MediaListSerializer(serializers.ModelSerializer):
             else:
                 return "other"
         return None
+
+    def _append_cache_buster(self, url: str, obj) -> str:
+        if not url:
+            return url
+
+        updated_at = getattr(obj, "updated_at", None) or getattr(
+            obj, "created_at", None
+        )
+        if not updated_at:
+            return url
+
+        timestamp = int(updated_at.timestamp())
+        parts = urlsplit(url)
+        query_params = dict(parse_qsl(parts.query))
+        query_params["v"] = str(timestamp)
+
+        return urlunsplit(
+            (
+                parts.scheme,
+                parts.netloc,
+                parts.path,
+                urlencode(query_params),
+                parts.fragment,
+            )
+        )
 
 
 class MediaUploadSerializer(serializers.ModelSerializer):

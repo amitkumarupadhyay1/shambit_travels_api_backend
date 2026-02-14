@@ -1,7 +1,9 @@
+import logging
 import os
 import shutil
 from datetime import timedelta
 from typing import Any, Dict, List, Optional
+from urllib.parse import unquote, urlparse
 
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
@@ -9,6 +11,8 @@ from django.db.models import Count, Q, Sum
 from django.utils import timezone
 
 from ..models import Media
+
+logger = logging.getLogger(__name__)
 
 
 class MediaService:
@@ -72,19 +76,20 @@ class MediaService:
         media_objects = Media.objects.filter(id__in=media_ids)
 
         if action == "delete":
-            # Delete files from storage
-            deleted_files = []
-            for media in media_objects:
-                if media.file:
-                    try:
-                        if os.path.exists(media.file.path):
-                            os.remove(media.file.path)
-                        deleted_files.append(media.file.name)
-                    except (OSError, ValueError):
-                        pass
+            media_list = list(media_objects)
+            deleted_files = [media.file.name for media in media_list if media.file]
+            deleted_count = 0
 
-            deleted_count = media_objects.count()
-            media_objects.delete()
+            for media in media_list:
+                try:
+                    media.delete()
+                    deleted_count += 1
+                except Exception as exc:
+                    logger.warning(
+                        "Failed to delete media id=%s during bulk operation: %s",
+                        media.id,
+                        exc,
+                    )
 
             return {
                 "action": "delete",
@@ -225,12 +230,14 @@ class MediaService:
         deleted_count = 0
         for media in orphaned_media:
             try:
-                if media.file and os.path.exists(media.file.path):
-                    os.remove(media.file.path)
                 media.delete()
                 deleted_count += 1
-            except (OSError, ValueError):
-                pass
+            except Exception as exc:
+                logger.warning(
+                    "Failed to delete orphaned media id=%s: %s",
+                    media.id,
+                    exc,
+                )
 
         return deleted_count
 
@@ -310,6 +317,11 @@ class MediaService:
         """
         Clean up files in media directory that are not referenced in database
         """
+        if os.environ.get("USE_CLOUDINARY") == "True":
+            return {
+                "error": "cleanup_unused_files is only supported for local filesystem storage"
+            }
+
         media_root = getattr(settings, "MEDIA_ROOT", "")
         if not media_root or not os.path.exists(media_root):
             return {"error": "Media root not found"}
@@ -457,4 +469,131 @@ class MediaService:
             "file_type_distribution": file_types,
             "total_files": Media.objects.count(),
             "generated_at": timezone.now().isoformat(),
+        }
+
+    @staticmethod
+    def _guess_cloudinary_resource_type(file_name: str) -> str:
+        extension = os.path.splitext(file_name or "")[1].lower()
+        if extension in [".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".svg"]:
+            return "image"
+        if extension in [".mp4", ".avi", ".mov", ".wmv", ".flv", ".mkv", ".webm"]:
+            return "video"
+        return "raw"
+
+    @staticmethod
+    def _extract_cloudinary_public_id(media: Media) -> Optional[str]:
+        if not media.file:
+            return None
+
+        # Preferred source: stored file name in DB (usually already public_id + extension)
+        file_name = (getattr(media.file, "name", "") or "").strip()
+        if file_name:
+            return os.path.splitext(file_name.lstrip("/"))[0]
+
+        # Fallback: parse from URL
+        try:
+            file_url = media.file.url
+        except Exception:
+            return None
+
+        if "res.cloudinary.com" not in file_url:
+            return None
+
+        parsed = urlparse(file_url)
+        path = unquote(parsed.path)
+        marker = "/upload/"
+        if marker not in path:
+            return None
+
+        after_upload = path.split(marker, 1)[1]
+        parts = [part for part in after_upload.split("/") if part]
+        if not parts:
+            return None
+
+        version_index = next(
+            (
+                idx
+                for idx, part in enumerate(parts)
+                if part.startswith("v") and part[1:].isdigit()
+            ),
+            None,
+        )
+        if version_index is not None and version_index + 1 < len(parts):
+            parts = parts[version_index + 1 :]
+        else:
+            while parts and "," in parts[0]:
+                parts = parts[1:]
+
+        public_id = "/".join(parts)
+        if not public_id:
+            return None
+        return os.path.splitext(public_id)[0]
+
+    @staticmethod
+    def delete_media_file(media: Media) -> Dict[str, Any]:
+        """
+        Delete media file from configured storage and Cloudinary (when enabled).
+        Safe to call multiple times.
+        """
+        if not media.file:
+            return {
+                "storage_deleted": False,
+                "cloudinary_deleted": False,
+                "public_id": None,
+            }
+
+        file_name = media.file.name
+        public_id = MediaService._extract_cloudinary_public_id(media)
+
+        storage_deleted = False
+        cloudinary_deleted = False
+        storage_error = None
+        cloudinary_error = None
+
+        try:
+            media.file.delete(save=False)
+            storage_deleted = True
+        except Exception as exc:
+            storage_error = str(exc)
+            logger.warning(
+                "Storage deletion failed for media id=%s file=%s: %s",
+                media.id,
+                file_name,
+                exc,
+            )
+
+        if os.environ.get("USE_CLOUDINARY") == "True" and public_id:
+            try:
+                import cloudinary.uploader
+
+                resource_type = MediaService._guess_cloudinary_resource_type(file_name)
+                result = cloudinary.uploader.destroy(
+                    public_id,
+                    resource_type=resource_type,
+                    invalidate=True,
+                )
+                cloudinary_deleted = result.get("result") in {"ok", "not found"}
+                if not cloudinary_deleted:
+                    cloudinary_error = str(result)
+                    logger.warning(
+                        "Cloudinary deletion returned non-success for media id=%s public_id=%s: %s",
+                        media.id,
+                        public_id,
+                        result,
+                    )
+            except Exception as exc:
+                cloudinary_error = str(exc)
+                logger.warning(
+                    "Cloudinary deletion failed for media id=%s public_id=%s: %s",
+                    media.id,
+                    public_id,
+                    exc,
+                )
+
+        return {
+            "storage_deleted": storage_deleted,
+            "cloudinary_deleted": cloudinary_deleted,
+            "public_id": public_id,
+            "storage_error": storage_error,
+            "cloudinary_error": cloudinary_error,
         }

@@ -211,8 +211,15 @@ class MediaProcessor:
         """
         Process image files (orientation, optimization)
         """
+        local_path = self._get_local_file_path(media.file)
+        if not local_path:
+            return {
+                "success": True,
+                "message": "Image processing skipped for remote storage backend",
+            }
+
         try:
-            with Image.open(media.file.path) as img:
+            with Image.open(local_path) as img:
                 # Fix orientation based on EXIF data
                 img = ImageOps.exif_transpose(img)
 
@@ -228,7 +235,7 @@ class MediaProcessor:
                     img = background
 
                 # Save the processed image
-                img.save(media.file.path, optimize=True, quality=85)
+                img.save(local_path, optimize=True, quality=85)
 
                 return {
                     "success": True,
@@ -259,9 +266,16 @@ class MediaProcessor:
         if not media.file or not self._get_file_type(media.file.name) == "image":
             return None
 
+        if hasattr(media.file, "url") and "cloudinary" in media.file.url:
+            return self.generate_cloudinary_thumbnail(media, width, height)
+
+        local_path = self._get_local_file_path(media.file)
+        if not local_path:
+            return None
+
         try:
             # Create thumbnails directory
-            thumbnail_dir = os.path.join(os.path.dirname(media.file.path), "thumbnails")
+            thumbnail_dir = os.path.join(os.path.dirname(local_path), "thumbnails")
             os.makedirs(thumbnail_dir, exist_ok=True)
 
             # Generate thumbnail filename
@@ -272,7 +286,7 @@ class MediaProcessor:
 
             # Generate thumbnail if it doesn't exist
             if not os.path.exists(thumbnail_path):
-                with Image.open(media.file.path) as img:
+                with Image.open(local_path) as img:
                     # Create thumbnail maintaining aspect ratio
                     img.thumbnail((width, height), Image.Resampling.LANCZOS)
 
@@ -418,10 +432,17 @@ class MediaProcessor:
         """
         Optimize image file
         """
-        try:
-            original_size = os.path.getsize(media.file.path)
+        local_path = self._get_local_file_path(media.file)
+        if not local_path:
+            return {
+                "success": True,
+                "message": "Image optimization skipped for remote storage backend",
+            }
 
-            with Image.open(media.file.path) as img:
+        try:
+            original_size = os.path.getsize(local_path)
+
+            with Image.open(local_path) as img:
                 # Resize if image is too large
                 max_dimension = 2000
                 if img.width > max_dimension or img.height > max_dimension:
@@ -438,9 +459,9 @@ class MediaProcessor:
                     img = background
 
                 # Save with optimization
-                img.save(media.file.path, optimize=True, quality=75)
+                img.save(local_path, optimize=True, quality=75)
 
-            new_size = os.path.getsize(media.file.path)
+            new_size = os.path.getsize(local_path)
             size_reduction = original_size - new_size
             reduction_percentage = (
                 (size_reduction / original_size) * 100 if original_size > 0 else 0
@@ -457,6 +478,17 @@ class MediaProcessor:
 
         except Exception as e:
             return {"success": False, "error": f"Error optimizing image: {str(e)}"}
+
+    def _get_local_file_path(self, file_field) -> Optional[str]:
+        """
+        Return local storage path when available; remote backends may not expose it.
+        """
+        if not file_field:
+            return None
+        try:
+            return file_field.path
+        except (AttributeError, NotImplementedError, ValueError):
+            return None
 
 
 class MediaUtils:

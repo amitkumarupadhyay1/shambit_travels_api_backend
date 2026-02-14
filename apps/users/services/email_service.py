@@ -52,7 +52,7 @@ ShamBit Team
 
             connection = get_connection(
                 fail_silently=False,
-                timeout=10,  # 10 second timeout for SMTP connection
+                timeout=30,  # 30 second timeout for SMTP connection
             )
 
             send_mail(
@@ -67,11 +67,25 @@ ShamBit Team
             logger.info(f"OTP email sent successfully to {email} for {purpose}")
             return True
 
+        except OSError as e:
+            # Network-related errors (errno 101: Network unreachable)
+            logger.error(f"Network error sending OTP email to {email}: {str(e)}")
+            logger.error(f"Error code: {e.errno if hasattr(e, 'errno') else 'N/A'}")
+            logger.error(
+                f"Email settings - HOST: {settings.EMAIL_HOST}, PORT: {settings.EMAIL_PORT}, "
+                f"USER: {settings.EMAIL_HOST_USER}, BACKEND: {settings.EMAIL_BACKEND}"
+            )
+            logger.error(
+                "HINT: If running on Railway, Gmail SMTP may be blocked. "
+                "Consider using SendGrid, Mailgun, or Resend instead."
+            )
+            return False
         except Exception as e:
             logger.error(f"Failed to send OTP email to {email}: {str(e)}")
             logger.error(f"Error type: {type(e).__name__}")
             logger.error(
-                f"Email settings - HOST: {settings.EMAIL_HOST}, PORT: {settings.EMAIL_PORT}, USER: {settings.EMAIL_HOST_USER}"
+                f"Email settings - HOST: {settings.EMAIL_HOST}, PORT: {settings.EMAIL_PORT}, "
+                f"USER: {settings.EMAIL_HOST_USER}, BACKEND: {settings.EMAIL_BACKEND}"
             )
             return False
 

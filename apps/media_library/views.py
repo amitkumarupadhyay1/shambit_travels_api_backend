@@ -1,3 +1,4 @@
+import mimetypes
 import os
 from datetime import timedelta
 
@@ -135,6 +136,24 @@ class MediaViewSet(viewsets.ModelViewSet):
         processor = MediaProcessor()
         processor.process_media(media)
 
+    def create(self, request, *args, **kwargs):
+        """
+        Create media and return full representation (id/file_url/etc),
+        not just upload payload fields.
+        """
+        serializer = MediaUploadSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+
+        media = serializer.instance
+        output_serializer = MediaSerializer(media, context={"request": request})
+        headers = self.get_success_headers(output_serializer.data)
+        return Response(
+            output_serializer.data,
+            status=status.HTTP_201_CREATED,
+            headers=headers,
+        )
+
     @action(detail=False, methods=["get"])
     def gallery(self, request):
         """
@@ -219,16 +238,18 @@ class MediaViewSet(viewsets.ModelViewSet):
             raise Http404("File not found")
 
         try:
-            with open(media.file.path, "rb") as f:
+            filename = os.path.basename(media.file.name)
+            content_type, _ = mimetypes.guess_type(filename)
+
+            with media.file.open("rb") as file_obj:
                 response = HttpResponse(
-                    f.read(), content_type="application/octet-stream"
+                    file_obj.read(),
+                    content_type=content_type or "application/octet-stream",
                 )
-                response["Content-Disposition"] = (
-                    f'attachment; filename="{os.path.basename(media.file.name)}"'
-                )
+                response["Content-Disposition"] = f'attachment; filename="{filename}"'
                 return response
-        except FileNotFoundError:
-            raise Http404("File not found on disk")
+        except Exception:
+            raise Http404("File not found in storage")
 
     @action(detail=True, methods=["get"])
     def thumbnail(self, request, pk=None):
