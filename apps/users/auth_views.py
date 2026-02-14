@@ -23,6 +23,7 @@ from .serializers import (
     UserRegistrationSerializer,
     UserSerializer,
 )
+from .services.email_service import EmailService
 from .services.otp_service import OTPService
 
 logger = logging.getLogger(__name__)
@@ -189,13 +190,18 @@ class ForgotPasswordView(APIView):
                 otp = OTPService.generate_otp()
                 OTPService.store_otp(email, otp, purpose="reset_password")
 
-                # Mock email sending for now as no email service implemented in plan detail
-                # In prod, use standard Django send_mail
-                logger.info(f"Password reset OTP for {email}: {otp}")
+                # Send OTP via email
+                email_sent = EmailService.send_password_reset_email(email, otp)
 
-                # Proactively return OTP in debug mode for testing
-                msg = "OTP sent to email"
-                return Response({"message": msg})
+                if email_sent:
+                    logger.info(f"Password reset OTP sent to {email}")
+                    return Response({"message": "OTP sent to email"})
+                else:
+                    logger.error(f"Failed to send password reset OTP to {email}")
+                    return Response(
+                        {"error": "Failed to send email. Please try again."},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    )
             except User.DoesNotExist:
                 # Don't reveal user existence? Security vs UX.
                 # For this app, maybe UX priority.
