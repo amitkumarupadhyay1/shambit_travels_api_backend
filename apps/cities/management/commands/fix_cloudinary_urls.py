@@ -37,18 +37,27 @@ class Command(BaseCommand):
                 self.stdout.write("\n🏛️ Fixing Ayodhya city...")
                 try:
                     ayodhya = City.objects.get(slug='ayodhya')
-                    correct_url = cloudinary_files['ram_ji_l9mhm6']
+                    # Store only the path, not the full URL
+                    # Cloudinary storage will automatically generate the full URL
+                    correct_path = "media/library/ram_ji_l9mhm6"
                     
-                    if str(ayodhya.hero_image) != correct_url:
-                        self.stdout.write(f"  Current: {ayodhya.hero_image}")
-                        self.stdout.write(f"  Correct: {correct_url}")
+                    current_value = str(ayodhya.hero_image) if ayodhya.hero_image else ""
+                    
+                    if current_value != correct_path:
+                        self.stdout.write(f"  Current: {current_value}")
+                        self.stdout.write(f"  Correct path: {correct_path}")
                         
-                        ayodhya.hero_image = correct_url
+                        # Save just the path
+                        ayodhya.hero_image = correct_path
                         ayodhya.save()
+                        
+                        # Refresh to get the generated URL
+                        ayodhya.refresh_from_db()
+                        self.stdout.write(f"  Generated URL: {ayodhya.hero_image.url}")
                         
                         self.stdout.write(self.style.SUCCESS("  ✅ Updated Ayodhya hero_image"))
                     else:
-                        self.stdout.write(self.style.SUCCESS("  ✅ Ayodhya URL already correct"))
+                        self.stdout.write(self.style.SUCCESS("  ✅ Ayodhya path already correct"))
                         
                 except City.DoesNotExist:
                     self.stdout.write(self.style.WARNING("  ⚠️  Ayodhya city not found"))
