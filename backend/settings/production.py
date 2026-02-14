@@ -152,7 +152,7 @@ else:
         # Railway Hobby plan volume is mounted
         volume_path = os.environ["RAILWAY_VOLUME_MOUNT_PATH"]
         MEDIA_ROOT = os.path.join(volume_path, "media")
-        
+
         # Create media directory if it doesn't exist
         os.makedirs(MEDIA_ROOT, mode=0o755, exist_ok=True)
         print(f"⚠️  Using Railway Volume for media storage: {MEDIA_ROOT}")
@@ -160,7 +160,7 @@ else:
         # Local development
         MEDIA_ROOT = BASE_DIR / "media"
         print(f"⚠️  Using local filesystem for media storage: {MEDIA_ROOT}")
-    
+
     # Override STORAGES to use FileSystemStorage
     STORAGES = {
         "default": {
