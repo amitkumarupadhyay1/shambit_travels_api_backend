@@ -270,37 +270,37 @@ class MediaAdmin(admin.ModelAdmin):
             file_extension = os.path.splitext(file_name)[1].upper()
 
             info_html = f"""
-            <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #dee2e6;">
-                <h4 style="margin-top: 0; color: #495057; font-size: 14px;">📄 File Details</h4>
+            <div style="background: var(--body-bg, #f8f9fa); padding: 15px; border-radius: 6px; border: 1px solid var(--border-color, #dee2e6);">
+                <h4 style="margin-top: 0; color: var(--body-fg, #495057); font-size: 14px;">📄 File Details</h4>
                 
                 <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-                    <tr style="border-bottom: 1px solid #dee2e6;">
-                        <td style="padding: 8px 0; font-weight: 600; width: 140px; color: #495057;">File Name:</td>
-                        <td style="padding: 8px 0; color: #212529;">{file_name}</td>
+                    <tr style="border-bottom: 1px solid var(--border-color, #dee2e6);">
+                        <td style="padding: 8px 0; font-weight: 600; width: 140px; color: var(--body-fg, #495057);">File Name:</td>
+                        <td style="padding: 8px 0; color: var(--body-fg, #212529);">{file_name}</td>
                     </tr>
-                    <tr style="border-bottom: 1px solid #dee2e6;">
-                        <td style="padding: 8px 0; font-weight: 600; color: #495057;">File Type:</td>
-                        <td style="padding: 8px 0; color: #212529;">{file_extension} file</td>
+                    <tr style="border-bottom: 1px solid var(--border-color, #dee2e6);">
+                        <td style="padding: 8px 0; font-weight: 600; color: var(--body-fg, #495057);">File Type:</td>
+                        <td style="padding: 8px 0; color: var(--body-fg, #212529);">{file_extension} file</td>
                     </tr>
-                    <tr style="border-bottom: 1px solid #dee2e6;">
-                        <td style="padding: 8px 0; font-weight: 600; color: #495057;">File Size:</td>
-                        <td style="padding: 8px 0; color: #212529;">{file_size}</td>
+                    <tr style="border-bottom: 1px solid var(--border-color, #dee2e6);">
+                        <td style="padding: 8px 0; font-weight: 600; color: var(--body-fg, #495057);">File Size:</td>
+                        <td style="padding: 8px 0; color: var(--body-fg, #212529);">{file_size}</td>
                     </tr>
             """
 
             # Storage location
             if "cloudinary" in obj.file.url:
                 info_html += f"""
-                    <tr style="border-bottom: 1px solid #dee2e6;">
-                        <td style="padding: 8px 0; font-weight: 600; color: #495057;">Storage:</td>
+                    <tr style="border-bottom: 1px solid var(--border-color, #dee2e6);">
+                        <td style="padding: 8px 0; font-weight: 600; color: var(--body-fg, #495057);">Storage:</td>
                         <td style="padding: 8px 0;">
                             <span style="background: #d4edda; color: #155724; padding: 3px 8px; border-radius: 3px; font-size: 12px;">
                                 ☁️ Cloudinary (Cloud Storage)
                             </span>
                         </td>
                     </tr>
-                    <tr style="border-bottom: 1px solid #dee2e6;">
-                        <td style="padding: 8px 0; font-weight: 600; color: #495057;">Public URL:</td>
+                    <tr style="border-bottom: 1px solid var(--border-color, #dee2e6);">
+                        <td style="padding: 8px 0; font-weight: 600; color: var(--body-fg, #495057);">Public URL:</td>
                         <td style="padding: 8px 0;">
                             <a href="{obj.file.url}" target="_blank" style="color: #007bff; word-break: break-all; font-size: 12px;">
                                 View on Cloudinary →
@@ -312,17 +312,17 @@ class MediaAdmin(admin.ModelAdmin):
                 try:
                     file_path = obj.file.path
                     info_html += f"""
-                    <tr style="border-bottom: 1px solid #dee2e6;">
-                        <td style="padding: 8px 0; font-weight: 600; color: #495057;">Storage:</td>
+                    <tr style="border-bottom: 1px solid var(--border-color, #dee2e6);">
+                        <td style="padding: 8px 0; font-weight: 600; color: var(--body-fg, #495057);">Storage:</td>
                         <td style="padding: 8px 0;">
                             <span style="background: #fff3cd; color: #856404; padding: 3px 8px; border-radius: 3px; font-size: 12px;">
                                 💾 Local Server Storage
                             </span>
                         </td>
                     </tr>
-                    <tr style="border-bottom: 1px solid #dee2e6;">
-                        <td style="padding: 8px 0; font-weight: 600; color: #495057;">Server Path:</td>
-                        <td style="padding: 8px 0;"><code style="background: #e9ecef; padding: 2px 6px; border-radius: 3px; font-size: 11px; word-break: break-all;">{file_path}</code></td>
+                    <tr style="border-bottom: 1px solid var(--border-color, #dee2e6);">
+                        <td style="padding: 8px 0; font-weight: 600; color: var(--body-fg, #495057);">Server Path:</td>
+                        <td style="padding: 8px 0;"><code style="background: var(--darkened-bg, #e9ecef); padding: 2px 6px; border-radius: 3px; font-size: 11px; word-break: break-all; color: var(--body-fg, inherit);">{file_path}</code></td>
                     </tr>
                     """
                 except (NotImplementedError, AttributeError):
@@ -335,17 +335,17 @@ class MediaAdmin(admin.ModelAdmin):
                         image_info = MediaUtils.get_image_info(obj.file.path)
                         if image_info:
                             info_html += f"""
-                    <tr style="border-bottom: 1px solid #dee2e6;">
-                        <td style="padding: 8px 0; font-weight: 600; color: #495057;">Dimensions:</td>
-                        <td style="padding: 8px 0; color: #212529;">{image_info['width']} × {image_info['height']} pixels</td>
+                    <tr style="border-bottom: 1px solid var(--border-color, #dee2e6);">
+                        <td style="padding: 8px 0; font-weight: 600; color: var(--body-fg, #495057);">Dimensions:</td>
+                        <td style="padding: 8px 0; color: var(--body-fg, #212529);">{image_info['width']} × {image_info['height']} pixels</td>
                     </tr>
-                    <tr style="border-bottom: 1px solid #dee2e6;">
-                        <td style="padding: 8px 0; font-weight: 600; color: #495057;">Image Format:</td>
-                        <td style="padding: 8px 0; color: #212529;">{image_info['format']}</td>
+                    <tr style="border-bottom: 1px solid var(--border-color, #dee2e6);">
+                        <td style="padding: 8px 0; font-weight: 600; color: var(--body-fg, #495057);">Image Format:</td>
+                        <td style="padding: 8px 0; color: var(--body-fg, #212529);">{image_info['format']}</td>
                     </tr>
-                    <tr style="border-bottom: 1px solid #dee2e6;">
-                        <td style="padding: 8px 0; font-weight: 600; color: #495057;">Color Mode:</td>
-                        <td style="padding: 8px 0; color: #212529;">{image_info['mode']}</td>
+                    <tr style="border-bottom: 1px solid var(--border-color, #dee2e6);">
+                        <td style="padding: 8px 0; font-weight: 600; color: var(--body-fg, #495057);">Color Mode:</td>
+                        <td style="padding: 8px 0; color: var(--body-fg, #212529);">{image_info['mode']}</td>
                     </tr>
                             """
                 except Exception:
@@ -354,13 +354,13 @@ class MediaAdmin(admin.ModelAdmin):
             # Upload date
             info_html += f"""
                     <tr>
-                        <td style="padding: 8px 0; font-weight: 600; color: #495057;">Uploaded:</td>
-                        <td style="padding: 8px 0; color: #212529;">{obj.created_at.strftime('%B %d, %Y at %I:%M %p')}</td>
+                        <td style="padding: 8px 0; font-weight: 600; color: var(--body-fg, #495057);">Uploaded:</td>
+                        <td style="padding: 8px 0; color: var(--body-fg, #212529);">{obj.created_at.strftime('%B %d, %Y at %I:%M %p')}</td>
                     </tr>
                 </table>
                 
-                <div style="margin-top: 12px; padding: 10px; background: #e7f3ff; border-radius: 4px; border-left: 3px solid #0066cc;">
-                    <small style="color: #004085; font-size: 12px;">
+                <div style="margin-top: 12px; padding: 10px; background: var(--darkened-bg, #e7f3ff); border-radius: 4px; border-left: 3px solid #0066cc;">
+                    <small style="color: var(--body-fg, #004085); font-size: 12px;">
                         <strong>💡 Usage Tip:</strong> This file is publicly accessible via the URL above. 
                         {'For responsive images, the system automatically generates optimized versions for different devices.' if MediaUtils.is_image_file(obj.file.name) and 'cloudinary' in obj.file.url else 'Copy the URL to use this file in your content.'}
                     </small>
