@@ -565,8 +565,8 @@ class MediaAdmin(admin.ModelAdmin):
         AJAX endpoint to search for content objects
         Returns JSON list of matching objects
         """
-        from django.http import JsonResponse
         from django.db.models import Q
+        from django.http import JsonResponse
 
         content_type_id = request.GET.get("content_type_id")
         search_query = request.GET.get("q", "")
