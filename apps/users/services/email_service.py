@@ -47,13 +47,21 @@ Best regards,
 ShamBit Team
             """.strip()
 
-            # Send email
+            # Send email with timeout handling
+            from django.core.mail import get_connection
+
+            connection = get_connection(
+                fail_silently=False,
+                timeout=10,  # 10 second timeout for SMTP connection
+            )
+
             send_mail(
                 subject=subject,
                 message=message,
                 from_email=from_email,
                 recipient_list=[email],
                 fail_silently=False,
+                connection=connection,
             )
 
             logger.info(f"OTP email sent successfully to {email} for {purpose}")
@@ -61,6 +69,10 @@ ShamBit Team
 
         except Exception as e:
             logger.error(f"Failed to send OTP email to {email}: {str(e)}")
+            logger.error(f"Error type: {type(e).__name__}")
+            logger.error(
+                f"Email settings - HOST: {settings.EMAIL_HOST}, PORT: {settings.EMAIL_PORT}, USER: {settings.EMAIL_HOST_USER}"
+            )
             return False
 
     @staticmethod
