@@ -131,38 +131,46 @@ SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
-# Use STORAGES for Django 4.2+ (replaces STATICFILES_STORAGE)
-STORAGES = {
-    "default": {
-        "BACKEND": "django.core.files.storage.FileSystemStorage",
-    },
-    "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
-    },
-}
-
 # Ensure static directory exists
 STATICFILES_DIRS = []
 static_dir = BASE_DIR / "static"
 if static_dir.exists():
     STATICFILES_DIRS = [static_dir]
 
-# Media files for Railway - use volume for persistent storage
+# Media files configuration - Cloudinary or Railway Volume
 MEDIA_URL = "/media/"
 
-if "RAILWAY_VOLUME_MOUNT_PATH" in os.environ:
-    # Railway Hobby plan volume is mounted
-    volume_path = os.environ["RAILWAY_VOLUME_MOUNT_PATH"]
-    MEDIA_ROOT = os.path.join(volume_path, "media")
-
-    # Create media directory if it doesn't exist
-    os.makedirs(MEDIA_ROOT, mode=0o755, exist_ok=True)
+# Check if Cloudinary should be used (from base.py)
+if os.environ.get("USE_CLOUDINARY") == "True":
+    # Use Cloudinary storage (configured in base.py)
+    # STORAGES is already set in base.py with MediaCloudinaryStorage
+    print("✅ Using Cloudinary for media storage in production")
+    pass  # Keep the STORAGES from base.py
 else:
-    # Local development
-    MEDIA_ROOT = BASE_DIR / "media"
-
-# Update STORAGES with media configuration
-STORAGES["default"]["OPTIONS"] = {"location": MEDIA_ROOT}
+    # Fallback to Railway Volume or local storage
+    if "RAILWAY_VOLUME_MOUNT_PATH" in os.environ:
+        # Railway Hobby plan volume is mounted
+        volume_path = os.environ["RAILWAY_VOLUME_MOUNT_PATH"]
+        MEDIA_ROOT = os.path.join(volume_path, "media")
+        
+        # Create media directory if it doesn't exist
+        os.makedirs(MEDIA_ROOT, mode=0o755, exist_ok=True)
+        print(f"⚠️  Using Railway Volume for media storage: {MEDIA_ROOT}")
+    else:
+        # Local development
+        MEDIA_ROOT = BASE_DIR / "media"
+        print(f"⚠️  Using local filesystem for media storage: {MEDIA_ROOT}")
+    
+    # Override STORAGES to use FileSystemStorage
+    STORAGES = {
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+            "OPTIONS": {"location": MEDIA_ROOT},
+        },
+        "staticfiles": {
+            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        },
+    }
 
 # Logging settings for production
 LOGGING = {
