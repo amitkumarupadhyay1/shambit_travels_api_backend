@@ -11,7 +11,11 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from .models import Booking
-from .serializers import BookingCreateSerializer, BookingSerializer
+from .serializers import (
+    BookingCreateResponseSerializer,
+    BookingCreateSerializer,
+    BookingSerializer,
+)
 from .services.booking_service import BookingService
 
 logger = logging.getLogger(__name__)
@@ -60,7 +64,7 @@ class BookingViewSet(viewsets.ModelViewSet):
         description="Create a new booking for a travel package with selected components.",
         request=BookingCreateSerializer,
         responses={
-            201: BookingSerializer,
+            201: BookingCreateResponseSerializer,
             400: OpenApiExample(
                 "Validation error",
                 value={"error": "Invalid booking data"},
@@ -69,7 +73,11 @@ class BookingViewSet(viewsets.ModelViewSet):
         },
     )
     def create(self, request, *args, **kwargs):
-        return super().create(request, *args, **kwargs)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        booking = serializer.save(user=request.user)
+        response_serializer = BookingCreateResponseSerializer(booking)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
     @extend_schema(
         operation_id="get_booking",

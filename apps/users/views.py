@@ -34,8 +34,8 @@ class NextAuthSyncView(APIView):
                     help_text="User last name", required=False
                 ),
                 "provider": serializers.ChoiceField(
-                    choices=["google", "github"],
-                    help_text="OAuth provider (google or github)",
+                    choices=["google", "facebook", "github"],
+                    help_text="OAuth provider (google, facebook, or github)",
                 ),
                 "uid": serializers.CharField(help_text="OAuth provider user ID"),
                 "token": serializers.CharField(
@@ -125,7 +125,7 @@ class NextAuthSyncView(APIView):
             )
 
         # Validate provider
-        if provider not in ["google", "github"]:
+        if provider not in ["google", "facebook", "github"]:
             return Response(
                 {"error": f"Unsupported provider: {provider}"},
                 status=status.HTTP_400_BAD_REQUEST,

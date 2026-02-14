@@ -81,7 +81,7 @@ class OAuthSecurityTests(APITestCase):
                 "email": "user@example.com",
                 "first_name": "John",
                 "last_name": "Doe",
-                "provider": "facebook",  # Unsupported
+                "provider": "linkedin",  # Unsupported
                 "uid": "123456",
                 "token": "some_token",
             },

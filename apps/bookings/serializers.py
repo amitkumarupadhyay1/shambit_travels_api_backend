@@ -48,7 +48,11 @@ class BookingCreateSerializer(serializers.ModelSerializer):
     """
 
     selected_experience_ids = serializers.ListField(
-        child=serializers.IntegerField(), write_only=True, required=True
+        child=serializers.IntegerField(), write_only=True, required=False
+    )
+    # Compatibility alias for older clients
+    experience_ids = serializers.ListField(
+        child=serializers.IntegerField(), write_only=True, required=False
     )
     hotel_tier_id = serializers.IntegerField(write_only=True, required=True)
     transport_option_id = serializers.IntegerField(write_only=True, required=True)
@@ -71,6 +75,7 @@ class BookingCreateSerializer(serializers.ModelSerializer):
         fields = [
             "package_id",
             "selected_experience_ids",
+            "experience_ids",
             "hotel_tier_id",
             "transport_option_id",
             "booking_date",
@@ -96,10 +101,19 @@ class BookingCreateSerializer(serializers.ModelSerializer):
         """Validate all component IDs exist"""
         from packages.models import Experience, HotelTier, Package, TransportOption
 
+        # Backward compatibility: accept `experience_ids` and normalize.
+        if not data.get("selected_experience_ids") and data.get("experience_ids"):
+            data["selected_experience_ids"] = data["experience_ids"]
+
         experience_ids = data.get("selected_experience_ids", [])
         hotel_tier_id = data.get("hotel_tier_id")
         transport_option_id = data.get("transport_option_id")
         package_id = data.get("package_id")
+
+        if not experience_ids:
+            raise serializers.ValidationError(
+                {"selected_experience_ids": "At least one experience is required"}
+            )
 
         # Check package exists
         if not Package.objects.filter(id=package_id).exists():
@@ -144,3 +158,29 @@ class BookingCreateSerializer(serializers.ModelSerializer):
         )
 
         return booking
+
+
+class BookingCreateResponseSerializer(serializers.ModelSerializer):
+    """Compact booking response for successful booking creation."""
+
+    booking_reference = serializers.SerializerMethodField()
+    payment_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Booking
+        fields = [
+            "id",
+            "booking_reference",
+            "status",
+            "total_price",
+            "payment_url",
+            "created_at",
+        ]
+
+    def get_booking_reference(self, obj):
+        # Keep compatibility with frontend route that expects a reference.
+        return str(obj.id)
+
+    def get_payment_url(self, obj):
+        # Placeholder until payment flow wires explicit URL generation.
+        return None

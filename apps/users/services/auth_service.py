@@ -19,6 +19,9 @@ class OAuthTokenVerifier:
             "token_endpoint": "https://www.googleapis.com/oauth2/v1/tokeninfo",
             "issuer": "https://accounts.google.com",
         },
+        "facebook": {
+            "token_endpoint": "https://graph.facebook.com/me",
+        },
         "github": {
             "token_endpoint": "https://api.github.com/user",
             "headers_prefix": "token",
@@ -78,10 +81,49 @@ class OAuthTokenVerifier:
             return None
 
     @staticmethod
+    def verify_facebook_token(token):
+        """Verify Facebook OAuth token"""
+        try:
+            response = requests.get(
+                OAuthTokenVerifier.PROVIDER_CONFIGS["facebook"]["token_endpoint"],
+                params={
+                    "fields": "id,email,first_name,last_name,name",
+                    "access_token": token,
+                },
+                timeout=5,
+            )
+            response.raise_for_status()
+
+            data = response.json()
+            full_name = data.get("name", "").strip()
+            first_name = data.get("first_name", "")
+            last_name = data.get("last_name", "")
+
+            # Fallback name split if provider does not send first/last names
+            if full_name and (not first_name and not last_name):
+                name_parts = full_name.split(" ", 1)
+                first_name = name_parts[0]
+                last_name = name_parts[1] if len(name_parts) > 1 else ""
+
+            return {
+                "email": data.get("email"),
+                "email_verified": bool(data.get("email")),
+                "provider": "facebook",
+                "uid": str(data.get("id")),
+                "first_name": first_name,
+                "last_name": last_name,
+            }
+        except Exception as e:
+            logger.error(f"Facebook token verification failed: {str(e)}")
+            return None
+
+    @staticmethod
     def verify_token(provider, token):
         """Main verification dispatcher"""
         if provider == "google":
             return OAuthTokenVerifier.verify_google_token(token)
+        elif provider == "facebook":
+            return OAuthTokenVerifier.verify_facebook_token(token)
         elif provider == "github":
             return OAuthTokenVerifier.verify_github_token(token)
         else:

@@ -70,10 +70,51 @@ class GuestUserSerializer(serializers.Serializer):
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     """Custom JWT token serializer with user data"""
 
+    username = serializers.CharField(required=False)
+    email = serializers.EmailField(required=False, write_only=True)
+
     def validate(self, attrs):
+        # Backward-compatible email login support for clients that send
+        # `email` instead of `username`.
+        if attrs.get("email") and not attrs.get("username"):
+            attrs["username"] = attrs["email"]
+
         data = super().validate(attrs)
 
         # Add user data to response
         data["user"] = UserSerializer(self.user).data
 
+        return data
+
+
+class SendOTPSerializer(serializers.Serializer):
+    """Serializer for sending OTP"""
+
+    phone = serializers.CharField(max_length=15)
+
+
+class LoginWithOTPSerializer(serializers.Serializer):
+    """Serializer for logging in with OTP"""
+
+    phone = serializers.CharField(max_length=15)
+    otp = serializers.CharField(max_length=6)
+
+
+class ForgotPasswordSerializer(serializers.Serializer):
+    """Serializer for forgot password request"""
+
+    email = serializers.EmailField()
+
+
+class ResetPasswordSerializer(serializers.Serializer):
+    """Serializer for resetting password with OTP"""
+
+    email = serializers.EmailField()
+    otp = serializers.CharField(max_length=6)
+    password = serializers.CharField(write_only=True, min_length=8)
+    password_confirm = serializers.CharField(write_only=True)
+
+    def validate(self, data):
+        if data["password"] != data["password_confirm"]:
+            raise serializers.ValidationError({"password": "Passwords do not match"})
         return data
