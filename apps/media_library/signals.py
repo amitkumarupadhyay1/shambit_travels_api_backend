@@ -37,6 +37,7 @@ def _invalidate_media_related_caches() -> None:
 def delete_previous_file_on_replace(sender, instance: Media, **kwargs):
     """
     If a Media file is replaced, remove the old file from storage/cloudinary.
+    Also ensure updated_at is refreshed.
     """
     if not instance.pk:
         return
@@ -50,7 +51,17 @@ def delete_previous_file_on_replace(sender, instance: Media, **kwargs):
     current_name = instance.file.name if instance.file else None
 
     if previous_name and previous_name != current_name:
+        logger.info(
+            "Media id=%s file changed from %s to %s, deleting old file",
+            instance.pk,
+            previous_name,
+            current_name,
+        )
         MediaService.delete_media_file(previous)
+
+        # Force update of updated_at timestamp for cache busting
+        # This is automatically handled by auto_now=True, but we log it
+        logger.info("Media id=%s updated_at will be refreshed", instance.pk)
 
 
 @receiver(pre_delete, sender=Media)

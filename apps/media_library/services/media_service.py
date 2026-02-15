@@ -536,6 +536,7 @@ class MediaService:
         Safe to call multiple times.
         """
         if not media.file:
+            logger.info("Media id=%s has no file to delete", media.id)
             return {
                 "storage_deleted": False,
                 "cloudinary_deleted": False,
@@ -550,28 +551,54 @@ class MediaService:
         storage_error = None
         cloudinary_error = None
 
+        # Log deletion attempt
+        logger.info(
+            "Attempting to delete media id=%s file=%s public_id=%s",
+            media.id,
+            file_name,
+            public_id,
+        )
+
+        # Delete from storage (local or Cloudinary storage backend)
         try:
             media.file.delete(save=False)
             storage_deleted = True
+            logger.info("Storage deletion successful for media id=%s", media.id)
         except Exception as exc:
             storage_error = str(exc)
-            logger.warning(
+            logger.error(
                 "Storage deletion failed for media id=%s file=%s: %s",
                 media.id,
                 file_name,
                 exc,
+                exc_info=True,
             )
 
-        if os.environ.get("USE_CLOUDINARY") == "True" and public_id:
+        # Delete from Cloudinary directly (if enabled)
+        use_cloudinary = os.environ.get("USE_CLOUDINARY", "False")
+        logger.info("USE_CLOUDINARY=%s, public_id=%s", use_cloudinary, public_id)
+
+        if use_cloudinary == "True" and public_id:
             try:
                 import cloudinary.uploader
 
                 resource_type = MediaService._guess_cloudinary_resource_type(file_name)
+                logger.info(
+                    "Calling cloudinary.uploader.destroy(public_id=%s, resource_type=%s)",
+                    public_id,
+                    resource_type,
+                )
+
                 result = cloudinary.uploader.destroy(
                     public_id,
                     resource_type=resource_type,
                     invalidate=True,
                 )
+
+                logger.info(
+                    "Cloudinary deletion result for media id=%s: %s", media.id, result
+                )
+
                 cloudinary_deleted = result.get("result") in {"ok", "not found"}
                 if not cloudinary_deleted:
                     cloudinary_error = str(result)
@@ -581,14 +608,29 @@ class MediaService:
                         public_id,
                         result,
                     )
+                else:
+                    logger.info(
+                        "Cloudinary deletion successful for media id=%s public_id=%s",
+                        media.id,
+                        public_id,
+                    )
             except Exception as exc:
                 cloudinary_error = str(exc)
-                logger.warning(
+                logger.error(
                     "Cloudinary deletion failed for media id=%s public_id=%s: %s",
                     media.id,
                     public_id,
                     exc,
+                    exc_info=True,
                 )
+        elif use_cloudinary != "True":
+            logger.info("Cloudinary not enabled, skipping Cloudinary deletion")
+        elif not public_id:
+            logger.warning(
+                "Could not extract public_id from media id=%s file=%s",
+                media.id,
+                file_name,
+            )
 
         return {
             "storage_deleted": storage_deleted,

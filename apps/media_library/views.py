@@ -423,6 +423,26 @@ class MediaViewSet(viewsets.ModelViewSet):
             return Response(serializer.data)
         return Response(search_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    def destroy(self, request, *args, **kwargs):
+        """
+        Override destroy to ensure proper file deletion from storage and Cloudinary
+        """
+        media = self.get_object()
+        media_id = media.id
+        file_name = media.file.name if media.file else None
+
+        # Delete the media (signals will handle file deletion)
+        media.delete()
+
+        return Response(
+            {
+                "message": "Media deleted successfully",
+                "id": media_id,
+                "file_name": file_name,
+            },
+            status=status.HTTP_204_NO_CONTENT,
+        )
+
     @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated])
     def optimize(self, request, pk=None):
         """
