@@ -47,6 +47,10 @@ class ExperienceSerializer(serializers.ModelSerializer):
         if not url or not version_source:
             return url
 
+        # Skip cache-busting for Cloudinary URLs - they have their own versioning
+        if "cloudinary.com" in url:
+            return url
+
         timestamp = int(version_source.timestamp())
         parts = urlsplit(url)
         query_params = dict(parse_qsl(parts.query))

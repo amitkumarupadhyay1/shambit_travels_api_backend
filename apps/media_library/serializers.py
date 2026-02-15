@@ -85,14 +85,37 @@ class MediaSerializer(serializers.ModelSerializer):
         """Get file MIME type"""
         if obj.file:
             name = obj.file.name.lower()
+
+            # Check file extension
             if name.endswith((".jpg", ".jpeg", ".png", ".gif", ".webp")):
                 return "image"
             elif name.endswith((".mp4", ".avi", ".mov", ".wmv", ".flv")):
                 return "video"
             elif name.endswith((".pdf")):
                 return "document"
-            else:
-                return "other"
+
+            # For Cloudinary URLs without extensions, check the actual file
+            if "cloudinary.com" in name:
+                try:
+                    # Try to get content type from file object
+                    if hasattr(obj.file, "file") and hasattr(
+                        obj.file.file, "content_type"
+                    ):
+                        content_type = obj.file.file.content_type
+                        if content_type and content_type.startswith("image/"):
+                            return "image"
+                        elif content_type and content_type.startswith("video/"):
+                            return "video"
+                        elif content_type and "pdf" in content_type:
+                            return "document"
+                except:
+                    pass
+
+                # Fallback: assume Cloudinary media/library paths are images
+                if "/media/library/" in name:
+                    return "image"
+
+            return "other"
         return None
 
     def get_is_image(self, obj) -> bool:
@@ -189,8 +212,13 @@ class MediaSerializer(serializers.ModelSerializer):
     def _append_cache_buster(self, url: str, obj) -> str:
         """
         Append version query param based on model update timestamp.
+        Skip for Cloudinary URLs as they have their own versioning.
         """
         if not url:
+            return url
+
+        # Skip cache-busting for Cloudinary URLs - they have their own versioning
+        if "cloudinary.com" in url:
             return url
 
         updated_at = getattr(obj, "updated_at", None) or getattr(
@@ -253,18 +281,28 @@ class MediaListSerializer(serializers.ModelSerializer):
         """Get file type"""
         if obj.file:
             name = obj.file.name.lower()
+
+            # Check file extension
             if name.endswith((".jpg", ".jpeg", ".png", ".gif", ".webp")):
                 return "image"
             elif name.endswith((".mp4", ".avi", ".mov", ".wmv", ".flv")):
                 return "video"
             elif name.endswith((".pdf")):
                 return "document"
-            else:
-                return "other"
+
+            # For Cloudinary URLs without extensions, assume images in media/library
+            if "cloudinary.com" in name and "/media/library/" in name:
+                return "image"
+
+            return "other"
         return None
 
     def _append_cache_buster(self, url: str, obj) -> str:
         if not url:
+            return url
+
+        # Skip cache-busting for Cloudinary URLs - they have their own versioning
+        if "cloudinary.com" in url:
             return url
 
         updated_at = getattr(obj, "updated_at", None) or getattr(

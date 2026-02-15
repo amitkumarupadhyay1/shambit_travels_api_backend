@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.postgres",  # Required for PostgreSQL full-text search
     # Cloudinary must be before django.contrib.staticfiles
     "cloudinary_storage",
     "cloudinary",
@@ -49,6 +50,7 @@ INSTALLED_APPS = [
     "payments",
     "notifications",
     "seo",
+    "search",  # Universal search app
 ]
 
 MIDDLEWARE = [
@@ -204,6 +206,7 @@ SPECTACULAR_SETTINGS = {
         {"name": "SEO", "description": "SEO metadata management"},
         {"name": "Media", "description": "Media library management"},
         {"name": "Pricing", "description": "Dynamic pricing engine"},
+        {"name": "Search", "description": "Universal search across all content"},
     ],
 }
 
