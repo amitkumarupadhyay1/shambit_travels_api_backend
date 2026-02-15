@@ -9,6 +9,26 @@ from django.utils.html import format_html
 from .models import PopularSearch, SearchClick, SearchQuery
 
 
+class ZeroResultsFilter(admin.SimpleListFilter):
+    """Custom filter for zero-result searches"""
+
+    title = "result count"
+    parameter_name = "has_results"
+
+    def lookups(self, request, model_admin):
+        return (
+            ("zero", "Zero results"),
+            ("some", "Has results"),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() == "zero":
+            return queryset.filter(result_count=0)
+        if self.value() == "some":
+            return queryset.filter(result_count__gt=0)
+        return queryset
+
+
 @admin.register(SearchQuery)
 class SearchQueryAdmin(admin.ModelAdmin):
     """Admin interface for search queries"""
@@ -25,7 +45,7 @@ class SearchQueryAdmin(admin.ModelAdmin):
     list_filter = [
         "categories",
         "timestamp",
-        ("result_count", admin.EmptyFieldListFilter),
+        ZeroResultsFilter,
     ]
     search_fields = ["query", "user__email", "ip_address"]
     readonly_fields = [
