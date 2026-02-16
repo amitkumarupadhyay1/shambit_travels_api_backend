@@ -101,6 +101,20 @@ if "RAILWAY_PUBLIC_DOMAIN" in os.environ:
 
 CORS_ALLOW_ALL_ORIGINS = os.environ.get("CORS_ALLOW_ALL_ORIGINS", "False") == "True"
 
+# Allow custom headers for production
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "accept-encoding",
+    "authorization",
+    "content-type",
+    "dnt",
+    "origin",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+    "idempotency-key",  # Custom header for idempotent booking requests
+]
+
 # CSRF trusted origins for production
 CSRF_TRUSTED_ORIGINS = [
     "https://yourdomain.com",

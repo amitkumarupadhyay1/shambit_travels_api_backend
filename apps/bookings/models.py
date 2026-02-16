@@ -10,6 +10,7 @@ class Booking(models.Model):
         ("PENDING_PAYMENT", "Pending Payment"),
         ("CONFIRMED", "Confirmed"),
         ("CANCELLED", "Cancelled"),
+        ("EXPIRED", "Expired"),
     ]
 
     user = models.ForeignKey(
@@ -67,9 +68,10 @@ class Booking(models.Model):
 
     def can_transition_to(self, new_status):
         transitions = {
-            "DRAFT": ["PENDING_PAYMENT"],
-            "PENDING_PAYMENT": ["CONFIRMED", "CANCELLED"],
+            "DRAFT": ["PENDING_PAYMENT", "EXPIRED", "CANCELLED"],
+            "PENDING_PAYMENT": ["CONFIRMED", "CANCELLED", "EXPIRED"],
             "CONFIRMED": ["CANCELLED"],
             "CANCELLED": [],
+            "EXPIRED": [],
         }
-        return new_status.get(self.status, [])
+        return new_status in transitions.get(self.status, [])

@@ -49,6 +49,20 @@ CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^http://192\.168\.29\.\d+:\d+$",
 ]
 
+# Allow custom headers for development (inherits from base.py but can be overridden)
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "accept-encoding",
+    "authorization",
+    "content-type",
+    "dnt",
+    "origin",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+    "idempotency-key",  # Custom header for idempotent booking requests
+]
+
 # Django Debug Toolbar settings
 # MIDDLEWARE += [
 #     'debug_toolbar.middleware.DebugToolbarMiddleware',

@@ -242,6 +242,20 @@ CORS_ALLOWED_ORIGIN_REGEXES = [
 
 CORS_ALLOW_CREDENTIALS = True
 
+# Allow custom headers for idempotency and other features
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "accept-encoding",
+    "authorization",
+    "content-type",
+    "dnt",
+    "origin",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+    "idempotency-key",  # Custom header for idempotent booking requests
+]
+
 # CSRF trusted origins for mobile and local network access
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",

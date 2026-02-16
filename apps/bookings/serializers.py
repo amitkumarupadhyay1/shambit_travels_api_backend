@@ -62,10 +62,16 @@ class BookingCreateSerializer(serializers.ModelSerializer):
     booking_date = serializers.DateField(required=True)
     num_travelers = serializers.IntegerField(required=True, min_value=1)
 
-    # Customer information
-    customer_name = serializers.CharField(required=True, max_length=255)
-    customer_email = serializers.EmailField(required=True)
-    customer_phone = serializers.CharField(required=True, max_length=15)
+    # Customer information (optional for DRAFT bookings)
+    customer_name = serializers.CharField(
+        required=False, max_length=255, allow_blank=True, default=""
+    )
+    customer_email = serializers.EmailField(
+        required=False, allow_blank=True, default=""
+    )
+    customer_phone = serializers.CharField(
+        required=False, max_length=15, allow_blank=True, default=""
+    )
     special_requests = serializers.CharField(
         required=False, allow_blank=True, default=""
     )
