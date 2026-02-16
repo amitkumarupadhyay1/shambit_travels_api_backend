@@ -29,12 +29,17 @@ class NotificationViewSet(viewsets.ModelViewSet):
     """
 
     permission_classes = [IsAuthenticated]
+    queryset = Notification.objects.none()  # Default queryset for schema generation
 
     def get_queryset(self):
         """
         Optimized queryset that only returns user's notifications
         Uses database indexes for performance
         """
+        # Prevent errors during schema generation
+        if getattr(self, "swagger_fake_view", False):
+            return Notification.objects.none()
+
         queryset = Notification.objects.filter(user=self.request.user)
 
         # Filter by read status

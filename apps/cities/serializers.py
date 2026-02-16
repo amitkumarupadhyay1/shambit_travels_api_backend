@@ -1,6 +1,8 @@
+from typing import Any, Dict, List, Optional
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from articles.models import Article
+from drf_spectacular.utils import extend_schema_field
 from media_library.models import Media
 from packages.models import Package
 from rest_framework import serializers
@@ -27,7 +29,8 @@ class CitySerializer(serializers.ModelSerializer):
             "updated_at",
         ]
 
-    def get_hero_image(self, obj):
+    @extend_schema_field(serializers.CharField(allow_null=True))
+    def get_hero_image(self, obj) -> Optional[str]:
         if not obj.hero_image:
             return None
         return self._append_cache_buster(obj.hero_image.url, obj.updated_at)
@@ -112,12 +115,14 @@ class CityContextSerializer(serializers.ModelSerializer):
             "meta_description",
         ]
 
-    def get_hero_image(self, obj):
+    @extend_schema_field(serializers.CharField(allow_null=True))
+    def get_hero_image(self, obj) -> Optional[str]:
         if not obj.hero_image:
             return None
         return self._append_cache_buster(obj.hero_image.url, obj.updated_at)
 
-    def get_gallery(self, obj):
+    @extend_schema_field(serializers.ListField(child=serializers.DictField()))
+    def get_gallery(self, obj) -> List[Dict[str, Any]]:
         from django.contrib.contenttypes.models import ContentType
 
         content_type = ContentType.objects.get_for_model(obj)

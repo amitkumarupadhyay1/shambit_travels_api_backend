@@ -1,5 +1,9 @@
+from datetime import timedelta
+
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils import timezone
 
 from packages.models import Experience, HotelTier, Package, TransportOption
 
@@ -49,6 +53,12 @@ class Booking(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
+    expires_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="Expiration time for DRAFT bookings (auto-set to 20 minutes after creation)",
+    )
 
     class Meta:
         indexes = [
@@ -75,3 +85,44 @@ class Booking(models.Model):
             "EXPIRED": [],
         }
         return new_status in transitions.get(self.status, [])
+
+    def transition_to(self, new_status):
+        """
+        Controlled state transition method.
+        Validates transition is allowed before updating status.
+        Raises ValidationError if transition is not permitted.
+        """
+        if not self.can_transition_to(new_status):
+            raise ValidationError(
+                f"Cannot transition booking from {self.status} to {new_status}"
+            )
+
+        old_status = self.status
+        self.status = new_status
+        self.save()
+
+        # Log transition for audit trail
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.info(f"Booking {self.id} transitioned from {old_status} to {new_status}")
+
+        return True
+
+    def save(self, *args, **kwargs):
+        """
+        Override save to set expires_at for DRAFT bookings.
+        """
+        # Set expiration time for new DRAFT bookings
+        if not self.pk and self.status == "DRAFT" and not self.expires_at:
+            self.expires_at = timezone.now() + timedelta(minutes=20)
+
+        super().save(*args, **kwargs)
+
+    def is_expired(self):
+        """
+        Check if DRAFT booking has expired.
+        """
+        if self.status == "DRAFT" and self.expires_at:
+            return timezone.now() > self.expires_at
+        return False

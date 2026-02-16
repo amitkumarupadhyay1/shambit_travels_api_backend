@@ -25,8 +25,13 @@ logger = logging.getLogger(__name__)
 class BookingViewSet(viewsets.ModelViewSet):
     serializer_class = BookingSerializer
     permission_classes = [IsAuthenticated]
+    queryset = Booking.objects.none()  # Default queryset for schema generation
 
     def get_queryset(self):
+        # Prevent errors during schema generation
+        if getattr(self, "swagger_fake_view", False):
+            return Booking.objects.none()
+
         return (
             Booking.objects.select_related(
                 "user", "package__city", "selected_hotel_tier", "selected_transport"

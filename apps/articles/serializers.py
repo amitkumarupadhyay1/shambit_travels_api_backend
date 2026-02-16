@@ -1,5 +1,7 @@
+from typing import Optional
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from .models import Article
@@ -26,11 +28,13 @@ class ArticleListSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
 
-    def get_excerpt(self, obj):
+    @extend_schema_field(serializers.CharField)
+    def get_excerpt(self, obj) -> str:
         # Return first 200 characters of content
         return obj.content[:200] + "..." if len(obj.content) > 200 else obj.content
 
-    def get_featured_image(self, obj):
+    @extend_schema_field(serializers.CharField(allow_null=True))
+    def get_featured_image(self, obj) -> Optional[str]:
         if not obj.featured_image:
             return None
         return self._append_cache_buster(obj.featured_image.url, obj.updated_at)
@@ -81,7 +85,8 @@ class ArticleSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
 
-    def get_featured_image(self, obj):
+    @extend_schema_field(serializers.CharField(allow_null=True))
+    def get_featured_image(self, obj) -> Optional[str]:
         if not obj.featured_image:
             return None
         return self._append_cache_buster(obj.featured_image.url, obj.updated_at)

@@ -1,5 +1,7 @@
+from typing import Optional
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
@@ -30,7 +32,8 @@ class ExperienceSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
 
-    def get_featured_image_url(self, obj):
+    @extend_schema_field(serializers.CharField(allow_null=True))
+    def get_featured_image_url(self, obj) -> Optional[str]:
         if obj.featured_image and obj.featured_image.file:
             request = self.context.get("request")
             if request:

@@ -1,3 +1,6 @@
+from typing import Optional
+
+from drf_spectacular.utils import extend_schema_field
 from packages.serializers import (
     ExperienceSerializer,
     HotelTierSerializer,
@@ -183,10 +186,12 @@ class BookingCreateResponseSerializer(serializers.ModelSerializer):
             "created_at",
         ]
 
-    def get_booking_reference(self, obj):
+    @extend_schema_field(serializers.CharField)
+    def get_booking_reference(self, obj) -> str:
         # Keep compatibility with frontend route that expects a reference.
         return str(obj.id)
 
-    def get_payment_url(self, obj):
+    @extend_schema_field(serializers.CharField(allow_null=True))
+    def get_payment_url(self, obj) -> Optional[str]:
         # Placeholder until payment flow wires explicit URL generation.
         return None

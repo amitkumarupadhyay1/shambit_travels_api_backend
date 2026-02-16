@@ -17,11 +17,15 @@ class BookingService:
     def transition_status(booking, new_status):
         """
         Handles state transitions for bookings with notifications.
+        Uses the model's transition_to method for validation.
         """
+        from django.core.exceptions import ValidationError
+
         old_status = booking.status
-        if booking.can_transition_to(new_status):
-            booking.status = new_status
-            booking.save()
+
+        try:
+            # Use model's transition_to method which validates the transition
+            booking.transition_to(new_status)
 
             # Send appropriate notifications
             try:
@@ -40,10 +44,11 @@ class BookingService:
             )
             return True
 
-        logger.warning(
-            f"Invalid transition for Booking {booking.id}: {old_status} -> {new_status}"
-        )
-        return False
+        except ValidationError as e:
+            logger.warning(
+                f"Invalid transition for Booking {booking.id}: {old_status} -> {new_status}. Error: {str(e)}"
+            )
+            return False
 
     @staticmethod
     def calculate_and_create_booking(
