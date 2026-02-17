@@ -11,23 +11,50 @@ logger = logging.getLogger(__name__)
 
 
 class PricingService:
+    # Age threshold for chargeable travelers
+    CHARGEABLE_AGE_THRESHOLD = 5
+
     @staticmethod
-    def calculate_total(package, experiences, hotel_tier, transport_option):
+    def calculate_total(
+        package, experiences, hotel_tier, transport_option, travelers=None
+    ):
         """
         Calculates total price based on selected components and active rules.
         Logic is strictly backend-side and deterministic.
+
+        Args:
+            package: Package instance
+            experiences: QuerySet or list of Experience instances
+            hotel_tier: HotelTier instance
+            transport_option: TransportOption instance
+            travelers: Optional list of traveler dicts with 'age' field for age-based pricing
+
+        Returns:
+            Decimal: Total price (per-person if travelers not provided, total if provided)
         """
         # Get price breakdown for detailed calculation
         breakdown = PricingService.get_price_breakdown(
-            package, experiences, hotel_tier, transport_option
+            package, experiences, hotel_tier, transport_option, travelers
         )
 
         return breakdown["final_total"]
 
     @staticmethod
-    def get_price_breakdown(package, experiences, hotel_tier, transport_option):
+    def get_price_breakdown(
+        package, experiences, hotel_tier, transport_option, travelers=None
+    ):
         """
-        Get detailed price breakdown for transparency
+        Get detailed price breakdown for transparency.
+
+        Args:
+            package: Package instance
+            experiences: QuerySet or list of Experience instances
+            hotel_tier: HotelTier instance
+            transport_option: TransportOption instance
+            travelers: Optional list of traveler dicts with 'age' field
+
+        Returns:
+            dict: Detailed price breakdown including age-based calculations
         """
         # 1. Base experiences price
         base_experience_total = (
@@ -86,6 +113,23 @@ class PricingService:
         # Ensure minimum price (never negative)
         final_total = max(current_total, Decimal("0.00")).quantize(Decimal("0.01"))
 
+        # Calculate age-based pricing if travelers provided
+        chargeable_travelers = None
+        total_travelers = None
+        total_amount = final_total  # Default to per-person price
+
+        if travelers:
+            total_travelers = len(travelers)
+            chargeable_travelers = sum(
+                1
+                for t in travelers
+                if t.get("age", 0) >= PricingService.CHARGEABLE_AGE_THRESHOLD
+            )
+            # Multiply per-person price by chargeable travelers
+            total_amount = (final_total * chargeable_travelers).quantize(
+                Decimal("0.01")
+            )
+
         return {
             "base_experience_total": base_experience_total.quantize(Decimal("0.01")),
             "transport_cost": transport_cost.quantize(Decimal("0.01")),
@@ -94,8 +138,13 @@ class PricingService:
             "subtotal_after_hotel": subtotal_after_hotel.quantize(Decimal("0.01")),
             "total_markup": total_markup.quantize(Decimal("0.01")),
             "total_discount": total_discount.quantize(Decimal("0.01")),
-            "final_total": final_total,
+            "final_total": final_total,  # Per-person price
             "applied_rules": applied_rules,
+            # Age-based pricing fields
+            "chargeable_travelers": chargeable_travelers,
+            "total_travelers": total_travelers,
+            "total_amount": total_amount,  # Total price (per-person * chargeable)
+            "chargeable_age_threshold": PricingService.CHARGEABLE_AGE_THRESHOLD,
         }
 
     @staticmethod

@@ -15,6 +15,7 @@ from .serializers import (
     BookingCreateResponseSerializer,
     BookingCreateSerializer,
     BookingSerializer,
+    BookingUpdateSerializer,
 )
 from .services.booking_service import BookingService
 
@@ -49,6 +50,8 @@ class BookingViewSet(viewsets.ModelViewSet):
     def get_serializer_class(self):
         if self.action == "create":
             return BookingCreateSerializer
+        elif self.action in ["update", "partial_update", "update_draft"]:
+            return BookingUpdateSerializer
         return BookingSerializer
 
     def perform_create(self, serializer):
@@ -66,7 +69,7 @@ class BookingViewSet(viewsets.ModelViewSet):
     @extend_schema(
         operation_id="create_booking",
         summary="Create new booking",
-        description="Create a new booking for a travel package with selected components.",
+        description="Create a new booking for a travel package with selected components. Requires Idempotency-Key header to prevent duplicate bookings.",
         request=BookingCreateSerializer,
         responses={
             201: BookingCreateResponseSerializer,
@@ -78,11 +81,43 @@ class BookingViewSet(viewsets.ModelViewSet):
         },
     )
     def create(self, request, *args, **kwargs):
+        """Create booking with idempotency enforcement"""
+        from django.core.cache import cache
+
+        # Check for idempotency key
+        idempotency_key = request.headers.get("Idempotency-Key")
+
+        if not idempotency_key:
+            return Response(
+                {"error": "Idempotency-Key header is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Check if already processed
+        cache_key = f"booking_idempotency:{idempotency_key}:{request.user.id}"
+        cached_response = cache.get(cache_key)
+
+        if cached_response:
+            logger.info(
+                f"Idempotent request detected: {idempotency_key} for user {request.user.id}"
+            )
+            return Response(cached_response, status=status.HTTP_200_OK)
+
+        # Process booking
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         booking = serializer.save(user=request.user)
         response_serializer = BookingCreateResponseSerializer(booking)
-        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+        response_data = response_serializer.data
+
+        # Cache for 24 hours
+        cache.set(cache_key, response_data, timeout=86400)
+
+        logger.info(
+            f"Booking {booking.id} created with idempotency key: {idempotency_key}"
+        )
+
+        return Response(response_data, status=status.HTTP_201_CREATED)
 
     @extend_schema(
         operation_id="get_booking",
@@ -99,6 +134,111 @@ class BookingViewSet(viewsets.ModelViewSet):
     )
     def retrieve(self, request, *args, **kwargs):
         return super().retrieve(request, *args, **kwargs)
+
+    @extend_schema(
+        operation_id="update_booking",
+        summary="Update booking (PREVENTED for CONFIRMED)",
+        description="Update booking details. CONFIRMED bookings cannot be modified.",
+        request=BookingUpdateSerializer,
+        responses={
+            200: BookingSerializer,
+            403: OpenApiExample(
+                "Cannot modify confirmed booking",
+                value={
+                    "error": "Confirmed bookings cannot be modified. Please contact support."
+                },
+                response_only=True,
+            ),
+        },
+    )
+    def update(self, request, *args, **kwargs):
+        """Prevent updates to CONFIRMED bookings"""
+        booking = self.get_object()
+
+        if booking.status == "CONFIRMED":
+            return Response(
+                {
+                    "error": "Confirmed bookings cannot be modified. Please contact support."
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if booking.status != "DRAFT":
+            return Response(
+                {"error": "Only DRAFT bookings can be updated"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return super().update(request, *args, **kwargs)
+
+    @extend_schema(
+        operation_id="partial_update_booking",
+        summary="Partially update booking (PREVENTED for CONFIRMED)",
+        description="Partially update booking details. CONFIRMED bookings cannot be modified.",
+        request=BookingUpdateSerializer,
+        responses={
+            200: BookingSerializer,
+            403: OpenApiExample(
+                "Cannot modify confirmed booking",
+                value={
+                    "error": "Confirmed bookings cannot be modified. Please contact support."
+                },
+                response_only=True,
+            ),
+        },
+    )
+    def partial_update(self, request, *args, **kwargs):
+        """Prevent partial updates to CONFIRMED bookings"""
+        booking = self.get_object()
+
+        if booking.status == "CONFIRMED":
+            return Response(
+                {
+                    "error": "Confirmed bookings cannot be modified. Please contact support."
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if booking.status != "DRAFT":
+            return Response(
+                {"error": "Only DRAFT bookings can be updated"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return super().partial_update(request, *args, **kwargs)
+
+    @extend_schema(
+        operation_id="delete_booking",
+        summary="Delete DRAFT booking",
+        description="Delete a DRAFT booking. Only DRAFT bookings can be deleted.",
+        responses={
+            204: OpenApiExample(
+                "Booking deleted",
+                value=None,
+                response_only=True,
+            ),
+            403: OpenApiExample(
+                "Cannot delete",
+                value={"error": "Only DRAFT bookings can be deleted"},
+                response_only=True,
+            ),
+        },
+    )
+    def destroy(self, request, *args, **kwargs):
+        """Delete DRAFT booking only"""
+        booking = self.get_object()
+
+        if not booking.is_deletable():
+            return Response(
+                {"error": "Only DRAFT bookings can be deleted"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        booking_id = booking.id
+        booking.delete()
+        logger.info(f"Booking {booking_id} deleted by user {request.user.id}")
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @extend_schema(
         operation_id="initiate_booking_payment",
@@ -149,14 +289,16 @@ class BookingViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # VALIDATE PRICE HAS NOT CHANGED
-        if not BookingService.validate_price(booking, booking.total_price):
+        # COMPREHENSIVE PRICE VALIDATION
+        is_valid, error_message = BookingService.validate_price(booking)
+        if not is_valid:
             logger.error(
-                f"Price validation failed for booking {booking.id}. "
-                f"Possible tampering or pricing rule change."
+                f"Price validation failed for booking {booking.id}: {error_message}"
             )
             return Response(
-                {"error": "Booking price has changed. Please refresh and try again."},
+                {
+                    "error": f"Booking validation failed: {error_message}. Please refresh and try again."
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

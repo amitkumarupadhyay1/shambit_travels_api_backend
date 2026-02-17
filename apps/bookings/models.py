@@ -35,6 +35,13 @@ class Booking(models.Model):
     booking_date = models.DateField(db_index=True, null=True, blank=True)
     num_travelers = models.PositiveIntegerField(default=1)
 
+    # Traveler details with age-based pricing
+    traveler_details = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="List of traveler information: [{name, age, gender}, ...]",
+    )
+
     # Customer information (snapshot at booking time)
     customer_name = models.CharField(max_length=255, blank=True, default="")
     customer_email = models.EmailField(blank=True, default="")
@@ -126,3 +133,29 @@ class Booking(models.Model):
         if self.status == "DRAFT" and self.expires_at:
             return timezone.now() > self.expires_at
         return False
+
+    def get_chargeable_travelers_count(self):
+        """
+        Calculate number of chargeable travelers (age >= 5).
+        Used for age-based pricing validation.
+        """
+        if not self.traveler_details:
+            return self.num_travelers
+
+        return sum(
+            1 for traveler in self.traveler_details if traveler.get("age", 0) >= 5
+        )
+
+    def is_editable(self):
+        """
+        Check if booking can be edited.
+        Only DRAFT bookings can be edited.
+        """
+        return self.status == "DRAFT" and not self.is_expired()
+
+    def is_deletable(self):
+        """
+        Check if booking can be deleted.
+        Only DRAFT bookings can be deleted.
+        """
+        return self.status == "DRAFT"

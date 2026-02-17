@@ -76,11 +76,12 @@ class PricingRuleAdmin(admin.ModelAdmin):
         """Display value with proper formatting"""
         if obj.is_percentage:
             return format_html(
-                '<strong style="color: #0066cc;">{}%</strong>', obj.value
+                '<strong style="color: #0066cc;">{}%</strong>', float(obj.value)
             )
         else:
             return format_html(
-                '<strong style="color: #0066cc;">₹{:,.2f}</strong>', obj.value
+                '<strong style="color: #0066cc;">₹{}</strong>',
+                f"{float(obj.value):,.2f}",
             )
 
     value_display.short_description = "Value"
