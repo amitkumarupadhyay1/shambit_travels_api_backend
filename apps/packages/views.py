@@ -540,17 +540,12 @@ class PackageViewSet(viewsets.ModelViewSet):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
-            # Calculate price
-            total_price = PricingService.calculate_total(
+            # Calculate price with detailed breakdown
+            breakdown = PricingService.get_price_breakdown(
                 package, experiences, hotel_tier, transport_option
             )
 
-            # Break down pricing
-            base_experience_price = sum(e.base_price for e in experiences)
-            transport_price = transport_option.base_price
-            hotel_multiplied = (
-                base_experience_price + transport_price
-            ) * hotel_tier.price_multiplier
+            total_price = breakdown["final_total"]
 
             # Audit log successful price calculation
             AuditLogger.log_price_calculation(
@@ -590,8 +585,16 @@ class PackageViewSet(viewsets.ModelViewSet):
                             "name": transport_option.name,
                             "price": str(transport_option.base_price),
                         },
+                        # NEW: Detailed pricing breakdown including taxes
+                        "subtotal_before_hotel": str(
+                            breakdown["subtotal_before_hotel"]
+                        ),
+                        "subtotal_after_hotel": str(breakdown["subtotal_after_hotel"]),
+                        "applied_rules": breakdown["applied_rules"],
+                        "total_markup": str(breakdown["total_markup"]),
+                        "total_discount": str(breakdown["total_discount"]),
                     },
-                    "pricing_note": "This is an estimate. Final price calculated at checkout.",
+                    "pricing_note": "Price includes all applicable taxes and charges. No hidden fees.",
                 }
             )
         except Exception as e:
