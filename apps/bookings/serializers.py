@@ -41,6 +41,7 @@ class BookingSerializer(serializers.ModelSerializer):
             "customer_phone",
             "special_requests",
             "total_price",
+            "total_amount_paid",
             "price_breakdown",
             "status",
             "expires_at",
@@ -52,6 +53,7 @@ class BookingSerializer(serializers.ModelSerializer):
             "booking_reference",
             "user_email",
             "total_price",
+            "total_amount_paid",
             "price_breakdown",
             "expires_at",
             "created_at",
@@ -330,6 +332,7 @@ class BookingCreateResponseSerializer(serializers.ModelSerializer):
             "booking_reference",
             "status",
             "total_price",
+            "total_amount_paid",
             "payment_url",
             "created_at",
         ]

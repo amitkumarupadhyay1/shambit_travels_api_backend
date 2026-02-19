@@ -20,12 +20,23 @@ class RazorpayService:
     def create_order(self, booking):
         """
         Create Razorpay order with correct total amount.
-        Calculates total based on per-person price × chargeable travelers.
+        Uses stored total_amount_paid (source of truth) or calculates as fallback.
         """
-        # Calculate total amount: per_person_price × chargeable_travelers
-        per_person_price = booking.total_price
-        chargeable_travelers = booking.get_chargeable_travelers_count()
-        total_amount = per_person_price * chargeable_travelers
+        # Use stored total_amount_paid (preferred - source of truth)
+        if booking.total_amount_paid:
+            total_amount = booking.total_amount_paid
+            logger.info(
+                f"Using stored total_amount_paid for booking {booking.id}: ${total_amount}"
+            )
+        else:
+            # Fallback for old bookings without total_amount_paid
+            per_person_price = booking.total_price
+            chargeable_travelers = booking.get_chargeable_travelers_count()
+            total_amount = per_person_price * chargeable_travelers
+            logger.warning(
+                f"Fallback calculation for booking {booking.id}: "
+                f"per_person=${per_person_price} × {chargeable_travelers} = ${total_amount}"
+            )
 
         amount_in_paise = int(total_amount * 100)  # Convert to paise
 
@@ -41,14 +52,14 @@ class RazorpayService:
                 booking=booking,
                 defaults={
                     "razorpay_order_id": razorpay_order["id"],
-                    "amount": total_amount,  # Store total amount, not per-person
+                    "amount": total_amount,  # Store total amount
                     "status": "PENDING",
                 },
             )
             logger.info(
                 f"Razorpay order created: {razorpay_order['id']} "
-                f"for booking {booking.id}, per_person={per_person_price}, "
-                f"chargeable_travelers={chargeable_travelers}, total={total_amount}"
+                f"for booking {booking.id}, total_amount=${total_amount}, "
+                f"amount_in_paise={amount_in_paise}"
             )
             return razorpay_order
         except Exception as e:
@@ -72,31 +83,36 @@ class RazorpayService:
         """
         Verify that payment amount matches booking total amount.
         Razorpay sends amount in paise; booking is in rupees.
-        Uses total amount (per_person × chargeable_travelers).
+        Uses stored total_amount_paid (source of truth) or calculates as fallback.
         """
         booking = payment.booking
 
         # Payment amount from webhook (in paise -> convert to rupees)
         webhook_amount = Decimal(str(payment_entity.get("amount", 0))) / Decimal("100")
 
-        # Expected amount: per_person_price × chargeable_travelers
-        per_person_price = booking.total_price
-        chargeable_travelers = booking.get_chargeable_travelers_count()
-        expected_amount = per_person_price * chargeable_travelers
+        # Expected amount: use stored total_amount_paid or calculate
+        if booking.total_amount_paid:
+            expected_amount = booking.total_amount_paid
+        else:
+            # Fallback for old bookings
+            per_person_price = booking.total_price
+            chargeable_travelers = booking.get_chargeable_travelers_count()
+            expected_amount = per_person_price * chargeable_travelers
 
         # Check for exact match
         if webhook_amount != expected_amount:
             logger.error(
                 f"PAYMENT AMOUNT MISMATCH for booking {booking.id}: "
-                f"webhook=${webhook_amount}, expected=${expected_amount} "
-                f"(per_person=${per_person_price} × {chargeable_travelers} travelers), "
+                f"webhook=${webhook_amount}, expected=${expected_amount}, "
+                f"per_person=${booking.total_price}, "
+                f"chargeable_travelers={booking.get_chargeable_travelers_count()}, "
                 f"payment_id={payment_entity.get('id')}"
             )
             return False
 
         logger.info(
             f"Payment amount verified for booking {booking.id}: ${expected_amount} "
-            f"(per_person=${per_person_price} × {chargeable_travelers} travelers)"
+            f"(stored_total_amount_paid=${booking.total_amount_paid})"
         )
         return True
 

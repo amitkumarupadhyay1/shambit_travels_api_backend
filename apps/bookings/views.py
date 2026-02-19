@@ -345,6 +345,80 @@ class BookingViewSet(viewsets.ModelViewSet):
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
     @extend_schema(
+        operation_id="validate_booking_payment",
+        summary="Validate booking before payment",
+        description="Validates booking data and returns exact payment amount to be charged. Call this before initiating payment for final confirmation.",
+        responses={
+            200: inline_serializer(
+                name="PaymentValidationResponse",
+                fields={
+                    "booking_id": serializers.IntegerField(),
+                    "per_person_price": serializers.CharField(),
+                    "chargeable_travelers": serializers.IntegerField(),
+                    "total_amount": serializers.CharField(),
+                    "amount_in_paise": serializers.IntegerField(),
+                    "currency": serializers.CharField(),
+                    "validated_at": serializers.DateTimeField(),
+                },
+            ),
+            400: OpenApiExample(
+                "Validation failed",
+                value={"error": "Booking validation failed"},
+                response_only=True,
+            ),
+        },
+    )
+    @action(detail=True, methods=["post"])
+    def validate_payment(self, request, pk=None):
+        """
+        Pre-payment validation endpoint.
+        Returns exact amount that will be charged.
+        Frontend should call this before initiating payment.
+        """
+        booking = self.get_object()
+
+        if booking.status not in ["DRAFT", "PENDING_PAYMENT"]:
+            return Response(
+                {"error": f"Cannot initiate payment for {booking.status} bookings"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Validate price
+        is_valid, error_message = BookingService.validate_price(booking)
+        if not is_valid:
+            return Response(
+                {"error": f"Booking validation failed: {error_message}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Calculate exact amount (use stored or calculate)
+        if booking.total_amount_paid:
+            total_amount = booking.total_amount_paid
+        else:
+            total_amount = (
+                booking.total_price * booking.get_chargeable_travelers_count()
+            )
+
+        amount_in_paise = int(total_amount * 100)
+
+        logger.info(
+            f"Payment validation for booking {booking.id}: "
+            f"total_amount=${total_amount}, amount_in_paise={amount_in_paise}"
+        )
+
+        return Response(
+            {
+                "booking_id": booking.id,
+                "per_person_price": str(booking.total_price),
+                "chargeable_travelers": booking.get_chargeable_travelers_count(),
+                "total_amount": str(total_amount),
+                "amount_in_paise": amount_in_paise,
+                "currency": "INR",
+                "validated_at": timezone.now().isoformat(),
+            }
+        )
+
+    @extend_schema(
         operation_id="preview_booking",
         summary="Preview booking price",
         description="Calculate booking price with traveler details WITHOUT creating a booking. Used on review page to show accurate age-based pricing.",

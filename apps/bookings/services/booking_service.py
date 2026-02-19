@@ -94,10 +94,22 @@ class BookingService:
                 package, experiences, hotel_tier, transport_option
             )
 
+            # Calculate total amount to be paid (per-person × chargeable travelers)
+            if traveler_details:
+                chargeable_count = sum(
+                    1 for t in traveler_details if t.get("age", 0) >= 5
+                )
+            else:
+                chargeable_count = num_travelers
+
+            total_amount_paid = calculated_price * chargeable_count
+
             logger.info(
-                f"Booking price calculated for user {user.id}: "
-                f"${calculated_price} per person (components: exp={len(experiences)}, "
-                f"hotel={hotel_tier.name}, transport={transport_option.name})"
+                f"BOOKING CREATION AUDIT: user={user.id}, package={package.slug}, "
+                f"per_person_price={calculated_price}, num_travelers={num_travelers}, "
+                f"chargeable_travelers={chargeable_count}, total_amount_paid={total_amount_paid}, "
+                f"traveler_ages={[t.get('age') for t in (traveler_details or [])]}, "
+                f"components: exp={len(experiences)}, hotel={hotel_tier.name}, transport={transport_option.name}"
             )
 
             # Create booking with calculated price and all details
@@ -108,6 +120,7 @@ class BookingService:
                     selected_hotel_tier=hotel_tier,
                     selected_transport=transport_option,
                     total_price=calculated_price,  # Per-person price
+                    total_amount_paid=total_amount_paid,  # Total amount to be charged
                     status="DRAFT",
                     booking_date=booking_date,
                     num_travelers=num_travelers,

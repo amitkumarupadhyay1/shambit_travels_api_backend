@@ -50,7 +50,17 @@ class Booking(models.Model):
 
     total_price = models.DecimalField(
         max_digits=12, decimal_places=2, db_index=True
-    )  # Price filtering
+    )  # Per-person price (base price after all calculations)
+
+    total_amount_paid = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="Total amount paid by customer (per_person_price × chargeable_travelers). This is the actual amount charged to the customer.",
+    )  # Actual total amount charged
+
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
