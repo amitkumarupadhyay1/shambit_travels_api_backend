@@ -26,9 +26,9 @@ class RazorpayService:
         per_person_price = booking.total_price
         chargeable_travelers = booking.get_chargeable_travelers_count()
         total_amount = per_person_price * chargeable_travelers
-        
+
         amount_in_paise = int(total_amount * 100)  # Convert to paise
-        
+
         order_data = {
             "amount": amount_in_paise,
             "currency": "INR",

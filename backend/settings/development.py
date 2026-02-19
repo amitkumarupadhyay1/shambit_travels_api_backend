@@ -42,7 +42,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://192.168.29.45:5173",
     "http://192.168.29.45:7173",
     "http://192.168.29.45:8000",
-    "http://192.168.3.103:3000", 
+    "http://192.168.3.103:3000",
 ]
 
 # Allow all origins from local network for development (192.168.x.x)
