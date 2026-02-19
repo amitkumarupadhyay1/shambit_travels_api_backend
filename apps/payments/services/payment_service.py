@@ -18,9 +18,19 @@ class RazorpayService:
         self.client = razorpay.Client(auth=(self.key_id, self.key_secret))
 
     def create_order(self, booking):
-        amount = int(booking.total_price * 100)  # In paise
+        """
+        Create Razorpay order with correct total amount.
+        Calculates total based on per-person price × chargeable travelers.
+        """
+        # Calculate total amount: per_person_price × chargeable_travelers
+        per_person_price = booking.total_price
+        chargeable_travelers = booking.get_chargeable_travelers_count()
+        total_amount = per_person_price * chargeable_travelers
+        
+        amount_in_paise = int(total_amount * 100)  # Convert to paise
+        
         order_data = {
-            "amount": amount,
+            "amount": amount_in_paise,
             "currency": "INR",
             "receipt": f"booking_{booking.id}",
             "payment_capture": 1,
@@ -31,13 +41,14 @@ class RazorpayService:
                 booking=booking,
                 defaults={
                     "razorpay_order_id": razorpay_order["id"],
-                    "amount": booking.total_price,
+                    "amount": total_amount,  # Store total amount, not per-person
                     "status": "PENDING",
                 },
             )
             logger.info(
                 f"Razorpay order created: {razorpay_order['id']} "
-                f"for booking {booking.id}, amount={booking.total_price}"
+                f"for booking {booking.id}, per_person={per_person_price}, "
+                f"chargeable_travelers={chargeable_travelers}, total={total_amount}"
             )
             return razorpay_order
         except Exception as e:
@@ -59,28 +70,33 @@ class RazorpayService:
     @staticmethod
     def validate_payment_amount(payment, payment_entity):
         """
-        Verify that payment amount matches booking total_price.
+        Verify that payment amount matches booking total amount.
         Razorpay sends amount in paise; booking is in rupees.
+        Uses total amount (per_person × chargeable_travelers).
         """
         booking = payment.booking
 
         # Payment amount from webhook (in paise -> convert to rupees)
         webhook_amount = Decimal(str(payment_entity.get("amount", 0))) / Decimal("100")
 
-        # Expected amount from booking
-        expected_amount = booking.total_price
+        # Expected amount: per_person_price × chargeable_travelers
+        per_person_price = booking.total_price
+        chargeable_travelers = booking.get_chargeable_travelers_count()
+        expected_amount = per_person_price * chargeable_travelers
 
         # Check for exact match
         if webhook_amount != expected_amount:
             logger.error(
                 f"PAYMENT AMOUNT MISMATCH for booking {booking.id}: "
-                f"webhook=${webhook_amount}, expected=${expected_amount}, "
+                f"webhook=${webhook_amount}, expected=${expected_amount} "
+                f"(per_person=${per_person_price} × {chargeable_travelers} travelers), "
                 f"payment_id={payment_entity.get('id')}"
             )
             return False
 
         logger.info(
-            f"Payment amount verified for booking {booking.id}: ${expected_amount}"
+            f"Payment amount verified for booking {booking.id}: ${expected_amount} "
+            f"(per_person=${per_person_price} × {chargeable_travelers} travelers)"
         )
         return True
 

@@ -345,6 +345,111 @@ class BookingCreateResponseSerializer(serializers.ModelSerializer):
         return None
 
 
+class BookingPreviewSerializer(serializers.Serializer):
+    """
+    Preview booking price with traveler details WITHOUT creating a booking.
+    Used on review page to show accurate pricing before submission.
+    """
+
+    package_id = serializers.IntegerField(required=True)
+    selected_experience_ids = serializers.ListField(
+        child=serializers.IntegerField(), required=True
+    )
+    # Compatibility alias
+    experience_ids = serializers.ListField(
+        child=serializers.IntegerField(), required=False
+    )
+    hotel_tier_id = serializers.IntegerField(required=True)
+    transport_option_id = serializers.IntegerField(required=True)
+    num_travelers = serializers.IntegerField(required=True, min_value=1)
+    traveler_details = serializers.ListField(
+        child=serializers.DictField(),
+        required=False,
+        allow_empty=True,
+        help_text="List of traveler details: [{name, age, gender}, ...]",
+    )
+
+    def validate_traveler_details(self, value):
+        """Validate traveler details structure"""
+        if not value:
+            return value
+
+        for i, traveler in enumerate(value):
+            if "name" not in traveler:
+                raise serializers.ValidationError(
+                    f"Traveler {i+1}: 'name' field is required"
+                )
+            if "age" not in traveler:
+                raise serializers.ValidationError(
+                    f"Traveler {i+1}: 'age' field is required"
+                )
+
+            try:
+                age = int(traveler["age"])
+                if age < 0 or age > 120:
+                    raise serializers.ValidationError(
+                        f"Traveler {i+1}: age must be between 0 and 120"
+                    )
+            except (ValueError, TypeError):
+                raise serializers.ValidationError(
+                    f"Traveler {i+1}: age must be a valid number"
+                )
+
+            if not traveler["name"].strip():
+                raise serializers.ValidationError(
+                    f"Traveler {i+1}: name cannot be empty"
+                )
+
+        return value
+
+    def validate(self, data):
+        """Validate all component IDs exist and traveler details match count"""
+        from packages.models import Experience, HotelTier, Package, TransportOption
+
+        # Backward compatibility
+        if not data.get("selected_experience_ids") and data.get("experience_ids"):
+            data["selected_experience_ids"] = data["experience_ids"]
+
+        experience_ids = data.get("selected_experience_ids", [])
+        hotel_tier_id = data.get("hotel_tier_id")
+        transport_option_id = data.get("transport_option_id")
+        package_id = data.get("package_id")
+        num_travelers = data.get("num_travelers")
+        traveler_details = data.get("traveler_details", [])
+
+        if not experience_ids:
+            raise serializers.ValidationError(
+                {"selected_experience_ids": "At least one experience is required"}
+            )
+
+        # Check package exists
+        if not Package.objects.filter(id=package_id).exists():
+            raise serializers.ValidationError("Package not found")
+
+        # Check experiences exist
+        if experience_ids:
+            count = Experience.objects.filter(id__in=experience_ids).count()
+            if count != len(experience_ids):
+                raise serializers.ValidationError("One or more experiences not found")
+
+        # Check hotel tier exists
+        if not HotelTier.objects.filter(id=hotel_tier_id).exists():
+            raise serializers.ValidationError("Hotel tier not found")
+
+        # Check transport option exists
+        if not TransportOption.objects.filter(id=transport_option_id).exists():
+            raise serializers.ValidationError("Transport option not found")
+
+        # Validate traveler details count matches num_travelers
+        if traveler_details and len(traveler_details) != num_travelers:
+            raise serializers.ValidationError(
+                f"Number of traveler details ({len(traveler_details)}) "
+                f"must match num_travelers ({num_travelers})"
+            )
+
+        return data
+
+
 class BookingUpdateSerializer(serializers.ModelSerializer):
     """
     Update serializer for DRAFT bookings only.

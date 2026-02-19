@@ -14,6 +14,7 @@ from .models import Booking
 from .serializers import (
     BookingCreateResponseSerializer,
     BookingCreateSerializer,
+    BookingPreviewSerializer,
     BookingSerializer,
     BookingUpdateSerializer,
 )
@@ -27,6 +28,17 @@ class BookingViewSet(viewsets.ModelViewSet):
     serializer_class = BookingSerializer
     permission_classes = [IsAuthenticated]
     queryset = Booking.objects.none()  # Default queryset for schema generation
+
+    def get_permissions(self):
+        """
+        Override permissions for specific actions.
+        Preview endpoint should be public (like calculate_price).
+        """
+        if self.action == "preview":
+            from rest_framework.permissions import AllowAny
+
+            return [AllowAny()]
+        return super().get_permissions()
 
     def get_queryset(self):
         # Prevent errors during schema generation
@@ -280,12 +292,14 @@ class BookingViewSet(viewsets.ModelViewSet):
         """
         Create Razorpay order for the booking.
         NOW VALIDATES PRICE BEFORE CREATING ORDER.
+        Allows retry for PENDING_PAYMENT bookings.
         """
         booking = self.get_object()
 
-        if booking.status != "DRAFT":
+        # Allow DRAFT and PENDING_PAYMENT (for retries)
+        if booking.status not in ["DRAFT", "PENDING_PAYMENT"]:
             return Response(
-                {"error": "Payment can only be initiated for draft bookings"},
+                {"error": f"Payment cannot be initiated for {booking.status} bookings"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -307,8 +321,9 @@ class BookingViewSet(viewsets.ModelViewSet):
                 razorpay_service = RazorpayService()
                 order = razorpay_service.create_order(booking)
 
-                # Update booking status
-                BookingService.transition_status(booking, "PENDING_PAYMENT")
+                # Update booking status only if it's DRAFT
+                if booking.status == "DRAFT":
+                    BookingService.transition_status(booking, "PENDING_PAYMENT")
 
             logger.info(
                 f"Payment initiated for booking {booking.id}: "
@@ -328,6 +343,116 @@ class BookingViewSet(viewsets.ModelViewSet):
                 f"Payment initiation failed for booking {booking.id}: {str(e)}"
             )
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    @extend_schema(
+        operation_id="preview_booking",
+        summary="Preview booking price",
+        description="Calculate booking price with traveler details WITHOUT creating a booking. Used on review page to show accurate age-based pricing.",
+        request=BookingPreviewSerializer,
+        responses={
+            200: inline_serializer(
+                name="BookingPreviewResponse",
+                fields={
+                    "per_person_price": serializers.DecimalField(
+                        max_digits=12, decimal_places=2
+                    ),
+                    "num_travelers": serializers.IntegerField(),
+                    "chargeable_travelers": serializers.IntegerField(),
+                    "total_amount": serializers.DecimalField(
+                        max_digits=12, decimal_places=2
+                    ),
+                    "price_breakdown": serializers.DictField(),
+                },
+            ),
+            400: OpenApiExample(
+                "Validation error",
+                value={"error": "Invalid preview data"},
+                response_only=True,
+            ),
+        },
+    )
+    @action(detail=False, methods=["post"])
+    def preview(self, request):
+        """
+        Preview booking price with traveler details.
+        Does NOT create booking - only calculates price.
+        """
+        serializer = BookingPreviewSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        from packages.models import Experience, HotelTier, Package, TransportOption
+        from pricing_engine.services.pricing_service import PricingService
+
+        # Get validated data
+        data = serializer.validated_data
+        package = Package.objects.get(id=data["package_id"])
+        experiences = Experience.objects.filter(id__in=data["selected_experience_ids"])
+        hotel_tier = HotelTier.objects.get(id=data["hotel_tier_id"])
+        transport_option = TransportOption.objects.get(id=data["transport_option_id"])
+        traveler_details = data.get("traveler_details", [])
+
+        # Calculate price with traveler details
+        breakdown = PricingService.get_price_breakdown(
+            package=package,
+            experiences=experiences,
+            hotel_tier=hotel_tier,
+            transport_option=transport_option,
+            travelers=traveler_details if traveler_details else None,
+        )
+
+        # Get per-person price (final_total from breakdown)
+        per_person_price = breakdown["final_total"]
+
+        # Get total amount and chargeable travelers from breakdown
+        num_travelers = data["num_travelers"]
+        chargeable_count = breakdown.get("chargeable_travelers", num_travelers)
+        total_amount = breakdown.get("total_amount", per_person_price * num_travelers)
+
+        logger.info(
+            f"Preview calculated: per_person={per_person_price}, "
+            f"num_travelers={num_travelers}, chargeable={chargeable_count}, "
+            f"total={total_amount}"
+        )
+
+        return Response(
+            {
+                "per_person_price": str(per_person_price),
+                "num_travelers": num_travelers,
+                "chargeable_travelers": chargeable_count,
+                "total_amount": str(total_amount),
+                "chargeable_age_threshold": breakdown.get(
+                    "chargeable_age_threshold", 5
+                ),
+                "price_breakdown": {
+                    "base_experience_total": str(breakdown["base_experience_total"]),
+                    "transport_cost": str(breakdown["transport_cost"]),
+                    "subtotal_before_hotel": str(breakdown["subtotal_before_hotel"]),
+                    "hotel_multiplier": str(breakdown["hotel_multiplier"]),
+                    "subtotal_after_hotel": str(breakdown["subtotal_after_hotel"]),
+                    "total_markup": str(breakdown["total_markup"]),
+                    "total_discount": str(breakdown["total_discount"]),
+                    "applied_rules": breakdown["applied_rules"],
+                    "experiences": [
+                        {
+                            "id": exp.id,
+                            "name": exp.name,
+                            "price": str(exp.base_price),
+                        }
+                        for exp in experiences
+                    ],
+                    "hotel_tier": {
+                        "name": hotel_tier.name,
+                        "multiplier": str(hotel_tier.price_multiplier),
+                    },
+                    "transport": {
+                        "name": transport_option.name,
+                        "price": str(transport_option.base_price),
+                    },
+                    "currency": "INR",
+                    "currency_symbol": "₹",
+                },
+            }
+        )
 
     @extend_schema(
         operation_id="cancel_booking",
