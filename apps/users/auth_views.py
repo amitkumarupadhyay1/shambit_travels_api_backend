@@ -14,6 +14,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from .models import User
 from .serializers import (
+    ChangePasswordSerializer,
     CustomTokenObtainPairSerializer,
     ForgotPasswordSerializer,
     GuestUserSerializer,
@@ -440,4 +441,60 @@ class CurrentUserView(APIView):
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@extend_schema(tags=["Authentication"])
+class ChangePasswordView(APIView):
+    """Change password for authenticated user"""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="change_password",
+        summary="Change password",
+        description="Change password for currently authenticated user",
+        request=ChangePasswordSerializer,
+        responses={
+            200: OpenApiExample(
+                "Password changed successfully",
+                value={"message": "Password changed successfully"},
+                response_only=True,
+            ),
+            400: OpenApiExample(
+                "Password change failed",
+                value={"error": "Current password is incorrect"},
+                response_only=True,
+            ),
+        },
+        examples=[
+            OpenApiExample(
+                "Change password request",
+                value={
+                    "current_password": "OldPass123!",
+                    "new_password": "NewSecurePass123!",
+                },
+                request_only=True,
+            ),
+        ],
+    )
+    def post(self, request):
+        serializer = ChangePasswordSerializer(
+            data=request.data, context={"request": request}
+        )
+        if serializer.is_valid():
+            try:
+                user = request.user
+                user.set_password(serializer.validated_data["new_password"])
+                user.save()
+                logger.info(f"Password changed successfully for user: {user.email}")
+                return Response({"message": "Password changed successfully"})
+            except Exception as e:
+                logger.error(
+                    f"Password change failed for user {request.user.email}: {str(e)}"
+                )
+                return Response(
+                    {"error": "Failed to change password"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

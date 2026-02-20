@@ -19,6 +19,7 @@ from .serializers import (
     BookingUpdateSerializer,
 )
 from .services.booking_service import BookingService
+from .services.voucher_service import VoucherService
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +82,11 @@ class BookingViewSet(viewsets.ModelViewSet):
     @extend_schema(
         operation_id="create_booking",
         summary="Create new booking",
-        description="Create a new booking for a travel package with selected components. Requires Idempotency-Key header to prevent duplicate bookings.",
+        description=(
+            "Create a new booking for a travel package with selected "
+            "components. Requires Idempotency-Key header to prevent "
+            "duplicate bookings."
+        ),
         request=BookingCreateSerializer,
         responses={
             201: BookingCreateResponseSerializer,
@@ -111,7 +116,8 @@ class BookingViewSet(viewsets.ModelViewSet):
 
         if cached_response:
             logger.info(
-                f"Idempotent request detected: {idempotency_key} for user {request.user.id}"
+                f"Idempotent request detected: {idempotency_key} "
+                f"for user {request.user.id}"
             )
             return Response(cached_response, status=status.HTTP_200_OK)
 
@@ -150,14 +156,17 @@ class BookingViewSet(viewsets.ModelViewSet):
     @extend_schema(
         operation_id="update_booking",
         summary="Update booking (PREVENTED for CONFIRMED)",
-        description="Update booking details. CONFIRMED bookings cannot be modified.",
+        description=("Update booking details. CONFIRMED bookings cannot be modified."),
         request=BookingUpdateSerializer,
         responses={
             200: BookingSerializer,
             403: OpenApiExample(
                 "Cannot modify confirmed booking",
                 value={
-                    "error": "Confirmed bookings cannot be modified. Please contact support."
+                    "error": (
+                        "Confirmed bookings cannot be modified. "
+                        "Please contact support."
+                    )
                 },
                 response_only=True,
             ),
@@ -170,7 +179,10 @@ class BookingViewSet(viewsets.ModelViewSet):
         if booking.status == "CONFIRMED":
             return Response(
                 {
-                    "error": "Confirmed bookings cannot be modified. Please contact support."
+                    "error": (
+                        "Confirmed bookings cannot be modified. "
+                        "Please contact support."
+                    )
                 },
                 status=status.HTTP_403_FORBIDDEN,
             )
@@ -186,14 +198,20 @@ class BookingViewSet(viewsets.ModelViewSet):
     @extend_schema(
         operation_id="partial_update_booking",
         summary="Partially update booking (PREVENTED for CONFIRMED)",
-        description="Partially update booking details. CONFIRMED bookings cannot be modified.",
+        description=(
+            "Partially update booking details. "
+            "CONFIRMED bookings cannot be modified."
+        ),
         request=BookingUpdateSerializer,
         responses={
             200: BookingSerializer,
             403: OpenApiExample(
                 "Cannot modify confirmed booking",
                 value={
-                    "error": "Confirmed bookings cannot be modified. Please contact support."
+                    "error": (
+                        "Confirmed bookings cannot be modified. "
+                        "Please contact support."
+                    )
                 },
                 response_only=True,
             ),
@@ -206,7 +224,10 @@ class BookingViewSet(viewsets.ModelViewSet):
         if booking.status == "CONFIRMED":
             return Response(
                 {
-                    "error": "Confirmed bookings cannot be modified. Please contact support."
+                    "error": (
+                        "Confirmed bookings cannot be modified. "
+                        "Please contact support."
+                    )
                 },
                 status=status.HTTP_403_FORBIDDEN,
             )
@@ -255,7 +276,11 @@ class BookingViewSet(viewsets.ModelViewSet):
     @extend_schema(
         operation_id="initiate_booking_payment",
         summary="Initiate payment for booking",
-        description="Create a Razorpay order for the booking and transition it to pending payment status. Validates that the booking price has not changed.",
+        description=(
+            "Create a Razorpay order for the booking and transition it to "
+            "pending payment status. Validates that the booking price has "
+            "not changed."
+        ),
         responses={
             200: inline_serializer(
                 name="PaymentInitiationResponse",
@@ -299,7 +324,11 @@ class BookingViewSet(viewsets.ModelViewSet):
         # Allow DRAFT and PENDING_PAYMENT (for retries)
         if booking.status not in ["DRAFT", "PENDING_PAYMENT"]:
             return Response(
-                {"error": f"Payment cannot be initiated for {booking.status} bookings"},
+                {
+                    "error": (
+                        f"Payment cannot be initiated for " f"{booking.status} bookings"
+                    )
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -311,7 +340,10 @@ class BookingViewSet(viewsets.ModelViewSet):
             )
             return Response(
                 {
-                    "error": f"Booking validation failed: {error_message}. Please refresh and try again."
+                    "error": (
+                        f"Booking validation failed: {error_message}. "
+                        f"Please refresh and try again."
+                    )
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
@@ -347,7 +379,11 @@ class BookingViewSet(viewsets.ModelViewSet):
     @extend_schema(
         operation_id="validate_booking_payment",
         summary="Validate booking before payment",
-        description="Validates booking data and returns exact payment amount to be charged. Call this before initiating payment for final confirmation.",
+        description=(
+            "Validates booking data and returns exact payment amount to be "
+            "charged. Call this before initiating payment for final "
+            "confirmation."
+        ),
         responses={
             200: inline_serializer(
                 name="PaymentValidationResponse",
@@ -387,7 +423,7 @@ class BookingViewSet(viewsets.ModelViewSet):
         is_valid, error_message = BookingService.validate_price(booking)
         if not is_valid:
             return Response(
-                {"error": f"Booking validation failed: {error_message}"},
+                {"error": (f"Booking validation failed: {error_message}")},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -421,7 +457,11 @@ class BookingViewSet(viewsets.ModelViewSet):
     @extend_schema(
         operation_id="preview_booking",
         summary="Preview booking price",
-        description="Calculate booking price with traveler details WITHOUT creating a booking. Used on review page to show accurate age-based pricing.",
+        description=(
+            "Calculate booking price with traveler details WITHOUT creating "
+            "a booking. Used on review page to show accurate age-based "
+            "pricing."
+        ),
         request=BookingPreviewSerializer,
         responses={
             200: inline_serializer(
@@ -557,4 +597,61 @@ class BookingViewSet(viewsets.ModelViewSet):
             return Response(
                 {"error": "Cannot cancel booking in current status"},
                 status=status.HTTP_400_BAD_REQUEST,
+            )
+
+    @extend_schema(
+        operation_id="download_voucher",
+        summary="Download booking voucher PDF",
+        description="Generate and download a PDF voucher for a confirmed booking.",
+        responses={
+            200: OpenApiExample(
+                "PDF voucher",
+                value="Binary PDF content",
+                response_only=True,
+            ),
+            400: OpenApiExample(
+                "Cannot generate voucher",
+                value={"error": "Voucher can only be generated for confirmed bookings"},
+                response_only=True,
+            ),
+        },
+    )
+    @action(detail=True, methods=["get"])
+    def voucher(self, request, pk=None):
+        """
+        Generate and download PDF voucher for confirmed booking
+        """
+        from django.http import HttpResponse
+
+        booking = self.get_object()
+
+        # Only allow voucher generation for confirmed bookings
+        if booking.status != "CONFIRMED":
+            return Response(
+                {"error": "Voucher can only be generated for confirmed bookings"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            # Generate PDF voucher
+            pdf_content = VoucherService.generate_voucher(booking)
+
+            # Create response with PDF
+            response = HttpResponse(pdf_content, content_type="application/pdf")
+            filename = f"ShamBit-Voucher-{booking.booking_reference or booking.id}.pdf"
+            response["Content-Disposition"] = f'attachment; filename="{filename}"'
+
+            logger.info(
+                f"Voucher downloaded for booking {booking.id} by user {request.user.id}"
+            )
+
+            return response
+
+        except Exception as e:
+            logger.error(
+                f"Voucher generation failed for booking {booking.id}: {str(e)}"
+            )
+            return Response(
+                {"error": f"Failed to generate voucher: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
