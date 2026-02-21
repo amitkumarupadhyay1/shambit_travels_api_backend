@@ -98,18 +98,66 @@ class Experience(models.Model):
 class HotelTier(models.Model):
     name = models.CharField(max_length=100, db_index=True)
     description = models.TextField()
+
+    # PHASE 1: New pricing fields
+    base_price_per_night = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="Base price per room per night (weekday rate in INR)",
+    )
+    weekend_multiplier = models.DecimalField(
+        max_digits=4,
+        decimal_places=2,
+        default=1.3,
+        help_text="Weekend price multiplier (e.g., 1.3 = 30% increase for Fri-Sun)",
+    )
+    max_occupancy_per_room = models.IntegerField(
+        default=2,
+        help_text="Maximum number of people per room",
+    )
+
+    # Room types configuration (JSON: {single: price, double: price, family: price})
+    room_types = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text='Available room types with prices: {"single": 1500, "double": 1700, "family": 2500}',
+    )
+
+    # Amenities list
+    amenities = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='List of included amenities: ["WiFi", "Breakfast", "AC", "Pool"]',
+    )
+
+    # DEPRECATED: Keep for backward compatibility
     price_multiplier = models.DecimalField(
-        max_digits=4, decimal_places=2, default=1.0, db_index=True
+        max_digits=4,
+        decimal_places=2,
+        default=1.0,
+        db_index=True,
+        help_text="DEPRECATED: Use base_price_per_night instead. Kept for backward compatibility.",
     )
 
     class Meta:
         indexes = [
-            models.Index(fields=["price_multiplier"]),  # Price tier filtering
+            models.Index(fields=["price_multiplier"]),  # Price tier filtering (legacy)
+            models.Index(fields=["base_price_per_night"]),  # New price filtering
         ]
         ordering = ["price_multiplier"]
 
     def __str__(self):
         return self.name
+
+    def get_effective_price_per_night(self):
+        """Get the effective price per night, preferring new field over legacy multiplier"""
+        if self.base_price_per_night:
+            return self.base_price_per_night
+        # Fallback to legacy multiplier (will be removed in future)
+        return None
 
 
 class TransportOption(models.Model):

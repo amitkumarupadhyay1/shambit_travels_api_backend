@@ -160,6 +160,22 @@ class BookingCreateSerializer(serializers.ModelSerializer):
     booking_date = serializers.DateField(required=True)
     num_travelers = serializers.IntegerField(required=True, min_value=1)
 
+    # PHASE 4: Date range and room allocation
+    booking_end_date = serializers.DateField(required=False, allow_null=True)
+    num_rooms = serializers.IntegerField(required=False, default=1, min_value=1)
+    room_allocation = serializers.ListField(
+        child=serializers.DictField(),
+        required=False,
+        allow_empty=True,
+        help_text='Room allocation details: [{"room_type": "double", "occupants": [0, 1]}]',
+    )
+    room_preferences = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        default="",
+        help_text="User's room preferences or special requests for accommodation",
+    )
+
     # Traveler details with age-based pricing
     traveler_details = serializers.ListField(
         child=serializers.DictField(),
@@ -191,6 +207,10 @@ class BookingCreateSerializer(serializers.ModelSerializer):
             "hotel_tier_id",
             "transport_option_id",
             "booking_date",
+            "booking_end_date",
+            "num_rooms",
+            "room_allocation",
+            "room_preferences",
             "num_travelers",
             "traveler_details",
             "customer_name",
@@ -247,7 +267,9 @@ class BookingCreateSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, data):
-        """Validate all component IDs exist and traveler details match count"""
+        """Validate all component IDs exist, traveler details match count, and date range"""
+        from datetime import timedelta
+
         from packages.models import Experience, HotelTier, Package, TransportOption
 
         # Backward compatibility: accept `experience_ids` and normalize.
@@ -260,6 +282,8 @@ class BookingCreateSerializer(serializers.ModelSerializer):
         package_id = data.get("package_id")
         num_travelers = data.get("num_travelers")
         traveler_details = data.get("traveler_details", [])
+        booking_date = data.get("booking_date")
+        booking_end_date = data.get("booking_end_date")
 
         if not experience_ids:
             raise serializers.ValidationError(
@@ -291,6 +315,16 @@ class BookingCreateSerializer(serializers.ModelSerializer):
                 f"must match num_travelers ({num_travelers})"
             )
 
+        # PHASE 4: Validate date range
+        if booking_end_date:
+            if booking_end_date <= booking_date:
+                raise serializers.ValidationError(
+                    "booking_end_date must be after booking_date"
+                )
+        else:
+            # Auto-set end date to next day if not provided
+            data["booking_end_date"] = booking_date + timedelta(days=1)
+
         return data
 
     def create(self, validated_data):
@@ -314,6 +348,11 @@ class BookingCreateSerializer(serializers.ModelSerializer):
             customer_email=validated_data["customer_email"],
             customer_phone=validated_data["customer_phone"],
             special_requests=validated_data.get("special_requests", ""),
+            # PHASE 4: Pass new fields
+            booking_end_date=validated_data.get("booking_end_date"),
+            num_rooms=validated_data.get("num_rooms", 1),
+            room_allocation=validated_data.get("room_allocation"),
+            room_preferences=validated_data.get("room_preferences", ""),
         )
 
         return booking
@@ -352,6 +391,8 @@ class BookingPreviewSerializer(serializers.Serializer):
     """
     Preview booking price with traveler details WITHOUT creating a booking.
     Used on review page to show accurate pricing before submission.
+
+    PHASE 1 UPDATE: Now supports date range and room count for accurate hotel pricing.
     """
 
     package_id = serializers.IntegerField(required=True)
@@ -371,6 +412,10 @@ class BookingPreviewSerializer(serializers.Serializer):
         allow_empty=True,
         help_text="List of traveler details: [{name, age, gender}, ...]",
     )
+    # PHASE 1: New fields for date-based hotel pricing
+    booking_start_date = serializers.DateField(required=False, allow_null=True)
+    booking_end_date = serializers.DateField(required=False, allow_null=True)
+    num_rooms = serializers.IntegerField(required=False, default=1, min_value=1)
 
     def validate_traveler_details(self, value):
         """Validate traveler details structure"""
@@ -398,15 +443,20 @@ class BookingPreviewSerializer(serializers.Serializer):
                     f"Traveler {i+1}: age must be a valid number"
                 )
 
-            if not traveler["name"].strip():
-                raise serializers.ValidationError(
-                    f"Traveler {i+1}: name cannot be empty"
-                )
-
         return value
 
     def validate(self, data):
-        """Validate all component IDs exist and traveler details match count"""
+        """Validate date range if provided"""
+        start_date = data.get("booking_start_date")
+        end_date = data.get("booking_end_date")
+
+        if start_date and end_date:
+            if end_date <= start_date:
+                raise serializers.ValidationError(
+                    "booking_end_date must be after booking_start_date"
+                )
+
+        return data
         from packages.models import Experience, HotelTier, Package, TransportOption
 
         # Backward compatibility

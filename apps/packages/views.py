@@ -416,6 +416,11 @@ class PackageViewSet(viewsets.ModelViewSet):
             hotel_tier_id = data.get("hotel_tier_id")
             transport_option_id = data.get("transport_option_id")
 
+            # PHASE 2: Optional date range and room count for accurate hotel pricing
+            start_date_str = data.get("start_date")
+            end_date_str = data.get("end_date")
+            num_rooms = data.get("num_rooms", 1)
+
             # Validation 1: Check experience_ids is a list
             if not isinstance(experience_ids, list):
                 AuditLogger.log_validation_failure(
@@ -541,8 +546,37 @@ class PackageViewSet(viewsets.ModelViewSet):
                     )
 
             # Calculate price with detailed breakdown
+            # PHASE 2: Pass date range and room count if provided
+            start_date = None
+            end_date = None
+
+            if start_date_str and end_date_str:
+                from datetime import datetime
+
+                try:
+                    start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+                    end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+
+                    # Validate date range
+                    if end_date <= start_date:
+                        return Response(
+                            {"error": "End date must be after start date"},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+                except ValueError:
+                    return Response(
+                        {"error": "Invalid date format. Use YYYY-MM-DD"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
             breakdown = PricingService.get_price_breakdown(
-                package, experiences, hotel_tier, transport_option
+                package,
+                experiences,
+                hotel_tier,
+                transport_option,
+                start_date=start_date,
+                end_date=end_date,
+                num_rooms=num_rooms,
             )
 
             total_price = breakdown["final_total"]
@@ -579,6 +613,12 @@ class PackageViewSet(viewsets.ModelViewSet):
                             "id": hotel_tier.id,
                             "name": hotel_tier.name,
                             "price_multiplier": str(hotel_tier.price_multiplier),
+                            # PHASE 2: Add new pricing fields
+                            "base_price_per_night": (
+                                str(hotel_tier.base_price_per_night)
+                                if hotel_tier.base_price_per_night
+                                else None
+                            ),
                         },
                         "transport": {
                             "id": transport_option.id,
@@ -590,6 +630,23 @@ class PackageViewSet(viewsets.ModelViewSet):
                             breakdown["subtotal_before_hotel"]
                         ),
                         "subtotal_after_hotel": str(breakdown["subtotal_after_hotel"]),
+                        # PHASE 2: Hotel cost breakdown
+                        "hotel_cost": (
+                            str(breakdown["hotel_cost"])
+                            if breakdown.get("hotel_cost")
+                            else None
+                        ),
+                        "hotel_cost_per_night": (
+                            str(breakdown["hotel_cost_per_night"])
+                            if breakdown.get("hotel_cost_per_night")
+                            else None
+                        ),
+                        "hotel_num_nights": breakdown.get("hotel_num_nights", 1),
+                        "hotel_num_rooms": breakdown.get("hotel_num_rooms", 1),
+                        "uses_new_hotel_pricing": breakdown.get(
+                            "uses_new_hotel_pricing", False
+                        ),
+                        # End PHASE 2
                         "applied_rules": breakdown["applied_rules"],
                         "total_markup": str(breakdown["total_markup"]),
                         "total_discount": str(breakdown["total_discount"]),

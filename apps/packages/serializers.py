@@ -105,9 +105,36 @@ class ExperienceSerializer(serializers.ModelSerializer):
 
 
 class HotelTierSerializer(serializers.ModelSerializer):
+    # PHASE 1: Add computed field for effective price
+    effective_price_per_night = serializers.SerializerMethodField()
+    uses_new_pricing = serializers.SerializerMethodField()
+
     class Meta:
         model = HotelTier
-        fields = ["id", "name", "description", "price_multiplier"]
+        fields = [
+            "id",
+            "name",
+            "description",
+            # PHASE 1: New fields
+            "base_price_per_night",
+            "weekend_multiplier",
+            "max_occupancy_per_room",
+            "room_types",
+            "amenities",
+            # Legacy field
+            "price_multiplier",
+            # Computed fields
+            "effective_price_per_night",
+            "uses_new_pricing",
+        ]
+
+    def get_effective_price_per_night(self, obj):
+        """Get the effective price, preferring new model over legacy"""
+        return obj.get_effective_price_per_night()
+
+    def get_uses_new_pricing(self, obj):
+        """Check if this tier uses the new pricing model"""
+        return obj.base_price_per_night is not None
 
 
 class TransportOptionSerializer(serializers.ModelSerializer):

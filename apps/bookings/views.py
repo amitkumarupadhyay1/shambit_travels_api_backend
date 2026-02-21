@@ -33,9 +33,9 @@ class BookingViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         """
         Override permissions for specific actions.
-        Preview endpoint should be public (like calculate_price).
+        Preview and recommend_rooms endpoints should be public (like calculate_price).
         """
-        if self.action == "preview":
+        if self.action in ["preview", "recommend_rooms"]:
             from rest_framework.permissions import AllowAny
 
             return [AllowAny()]
@@ -797,9 +797,13 @@ class BookingViewSet(viewsets.ModelViewSet):
         """
         Preview booking price with traveler details.
         Does NOT create booking - only calculates price.
+
+        PHASE 1 UPDATE: Now supports date range and room count for accurate hotel pricing.
         """
         serializer = BookingPreviewSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+
+        from datetime import datetime
 
         from packages.models import Experience, HotelTier, Package, TransportOption
         from pricing_engine.services.pricing_service import PricingService
@@ -812,13 +816,27 @@ class BookingViewSet(viewsets.ModelViewSet):
         transport_option = TransportOption.objects.get(id=data["transport_option_id"])
         traveler_details = data.get("traveler_details", [])
 
-        # Calculate price with traveler details
+        # PHASE 1: Get date range and room count if provided
+        start_date = data.get("booking_start_date")
+        end_date = data.get("booking_end_date")
+        num_rooms = data.get("num_rooms", 1)
+
+        # Convert string dates to date objects if provided
+        if start_date and isinstance(start_date, str):
+            start_date = datetime.strptime(start_date, "%Y-%m-%d").date()
+        if end_date and isinstance(end_date, str):
+            end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
+
+        # Calculate price with traveler details and date range
         breakdown = PricingService.get_price_breakdown(
             package=package,
             experiences=experiences,
             hotel_tier=hotel_tier,
             transport_option=transport_option,
             travelers=traveler_details if traveler_details else None,
+            start_date=start_date,
+            end_date=end_date,
+            num_rooms=num_rooms,
         )
 
         # Get per-person price (final_total from breakdown)
@@ -832,7 +850,8 @@ class BookingViewSet(viewsets.ModelViewSet):
         logger.info(
             f"Preview calculated: per_person={per_person_price}, "
             f"num_travelers={num_travelers}, chargeable={chargeable_count}, "
-            f"total={total_amount}"
+            f"total={total_amount}, nights={breakdown.get('hotel_num_nights')}, "
+            f"rooms={breakdown.get('hotel_num_rooms')}, uses_new_pricing={breakdown.get('uses_new_hotel_pricing')}"
         )
 
         return Response(
@@ -850,6 +869,23 @@ class BookingViewSet(viewsets.ModelViewSet):
                     "subtotal_before_hotel": str(breakdown["subtotal_before_hotel"]),
                     "hotel_multiplier": str(breakdown["hotel_multiplier"]),
                     "subtotal_after_hotel": str(breakdown["subtotal_after_hotel"]),
+                    # PHASE 1: New hotel cost fields
+                    "hotel_cost": (
+                        str(breakdown["hotel_cost"])
+                        if breakdown.get("hotel_cost")
+                        else None
+                    ),
+                    "hotel_cost_per_night": (
+                        str(breakdown["hotel_cost_per_night"])
+                        if breakdown.get("hotel_cost_per_night")
+                        else None
+                    ),
+                    "hotel_num_nights": breakdown.get("hotel_num_nights", 1),
+                    "hotel_num_rooms": breakdown.get("hotel_num_rooms", 1),
+                    "uses_new_hotel_pricing": breakdown.get(
+                        "uses_new_hotel_pricing", False
+                    ),
+                    # End PHASE 1
                     "total_markup": str(breakdown["total_markup"]),
                     "total_discount": str(breakdown["total_discount"]),
                     "applied_rules": breakdown["applied_rules"],
@@ -871,6 +907,145 @@ class BookingViewSet(viewsets.ModelViewSet):
                     },
                     "currency": "INR",
                     "currency_symbol": "₹",
+                },
+            }
+        )
+
+    @extend_schema(
+        operation_id="recommend_rooms",
+        summary="Get room recommendations",
+        description=(
+            "PHASE 3: Get intelligent room allocation recommendations based on "
+            "traveler composition (age, gender). Analyzes group dynamics and "
+            "suggests optimal room configurations."
+        ),
+        request=inline_serializer(
+            name="RoomRecommendationRequest",
+            fields={
+                "hotel_tier_id": serializers.IntegerField(help_text="Hotel tier ID"),
+                "traveler_details": serializers.ListField(
+                    child=inline_serializer(
+                        name="TravelerDetail",
+                        fields={
+                            "name": serializers.CharField(),
+                            "age": serializers.IntegerField(),
+                            "gender": serializers.CharField(required=False),
+                        },
+                    ),
+                    help_text="List of traveler details with name, age, and optional gender",
+                ),
+                "preference": serializers.ChoiceField(
+                    choices=[
+                        "auto",
+                        "budget",
+                        "comfort",
+                        "privacy",
+                        "family",
+                        "gender_separated",
+                    ],
+                    default="auto",
+                    required=False,
+                    help_text="Preferred allocation type (default: auto)",
+                ),
+            },
+        ),
+        responses={
+            200: inline_serializer(
+                name="RoomRecommendationResponse",
+                fields={
+                    "recommendations": serializers.ListField(
+                        child=serializers.DictField(),
+                        help_text="List of room allocation recommendations",
+                    ),
+                    "composition": serializers.DictField(
+                        help_text="Traveler composition analysis"
+                    ),
+                },
+            ),
+        },
+        examples=[
+            OpenApiExample(
+                "Family with children",
+                value={
+                    "hotel_tier_id": 1,
+                    "traveler_details": [
+                        {"name": "John", "age": 35, "gender": "M"},
+                        {"name": "Jane", "age": 32, "gender": "F"},
+                        {"name": "Child 1", "age": 8, "gender": "M"},
+                        {"name": "Child 2", "age": 5, "gender": "F"},
+                    ],
+                    "preference": "auto",
+                },
+                request_only=True,
+            ),
+        ],
+    )
+    @action(detail=False, methods=["post"])
+    def recommend_rooms(self, request):
+        """
+        PHASE 3: Get intelligent room recommendations based on traveler composition.
+        """
+        from packages.models import HotelTier
+        from pricing_engine.services.room_recommendation_service import (
+            RoomRecommendationService,
+        )
+
+        # Validate input
+        hotel_tier_id = request.data.get("hotel_tier_id")
+        traveler_details = request.data.get("traveler_details", [])
+        preference = request.data.get("preference", "auto")
+
+        if not hotel_tier_id:
+            return Response(
+                {"error": "hotel_tier_id is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not traveler_details:
+            return Response(
+                {"error": "traveler_details is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            hotel_tier = HotelTier.objects.get(id=hotel_tier_id)
+        except HotelTier.DoesNotExist:
+            return Response(
+                {"error": "Hotel tier not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Get composition analysis
+        composition = RoomRecommendationService.analyze_traveler_composition(
+            traveler_details
+        )
+
+        # Get recommendations
+        recommendations = RoomRecommendationService.recommend_rooms(
+            travelers=traveler_details, hotel_tier=hotel_tier
+        )
+
+        # Convert Decimal to string for JSON serialization
+        for rec in recommendations:
+            rec["cost_per_night"] = str(rec["cost_per_night"])
+
+        logger.info(
+            f"Room recommendations generated: {len(recommendations)} options for "
+            f"{composition['total']} travelers (hotel_tier={hotel_tier_id})"
+        )
+
+        return Response(
+            {
+                "recommendations": recommendations,
+                "composition": composition,
+                "hotel_tier": {
+                    "id": hotel_tier.id,
+                    "name": hotel_tier.name,
+                    "max_occupancy_per_room": hotel_tier.max_occupancy_per_room,
+                    "base_price_per_night": (
+                        str(hotel_tier.base_price_per_night)
+                        if hotel_tier.base_price_per_night
+                        else None
+                    ),
                 },
             }
         )

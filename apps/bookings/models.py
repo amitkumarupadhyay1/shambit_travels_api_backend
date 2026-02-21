@@ -31,8 +31,29 @@ class Booking(models.Model):
         TransportOption, on_delete=models.PROTECT, db_index=True
     )
 
-    # Booking details
-    booking_date = models.DateField(db_index=True, null=True, blank=True)
+    # Booking details - PHASE 1: Updated date fields
+    booking_date = models.DateField(
+        db_index=True,
+        null=True,
+        blank=True,
+        help_text="DEPRECATED: Use booking_start_date instead. Kept for backward compatibility.",
+    )
+    booking_start_date = models.DateField(
+        db_index=True,
+        null=True,
+        blank=True,
+        help_text="Trip start date",
+    )
+    booking_end_date = models.DateField(
+        db_index=True,
+        null=True,
+        blank=True,
+        help_text="Trip end date",
+    )
+    num_nights = models.IntegerField(
+        default=1,
+        help_text="Number of nights (auto-calculated from start/end dates)",
+    )
     num_travelers = models.PositiveIntegerField(default=1)
 
     # Traveler details with age-based pricing
@@ -40,6 +61,22 @@ class Booking(models.Model):
         default=list,
         blank=True,
         help_text="List of traveler information: [{name, age, gender}, ...]",
+    )
+
+    # PHASE 1: Room allocation fields
+    num_rooms_required = models.IntegerField(
+        default=1,
+        help_text="Number of rooms booked",
+    )
+    room_allocation = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='Room allocation details: [{"room_type": "double", "occupants": [traveler_ids]}]',
+    )
+    room_preferences = models.TextField(
+        blank=True,
+        default="",
+        help_text="User's room preferences or special requests for accommodation",
     )
 
     # Customer information (snapshot at booking time)
@@ -60,6 +97,22 @@ class Booking(models.Model):
         db_index=True,
         help_text="Total amount paid by customer (per_person_price × chargeable_travelers). This is the actual amount charged to the customer.",
     )  # Actual total amount charged
+
+    # PHASE 1: Hotel cost breakdown
+    hotel_cost_per_night = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Hotel cost per night (all rooms combined)",
+    )
+    total_hotel_cost = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Total hotel cost (all nights × all rooms)",
+    )
 
     status = models.CharField(
         max_length=20,
@@ -128,8 +181,26 @@ class Booking(models.Model):
 
     def save(self, *args, **kwargs):
         """
-        Override save to set expires_at for DRAFT bookings.
+        Override save to:
+        1. Set expires_at for DRAFT bookings
+        2. Auto-calculate num_nights from date range (PHASE 1)
+        3. Sync booking_date with booking_start_date for backward compatibility
         """
+        # PHASE 1: Auto-calculate num_nights from date range
+        if self.booking_start_date and self.booking_end_date:
+            delta = self.booking_end_date - self.booking_start_date
+            self.num_nights = max(1, delta.days)  # At least 1 night
+
+        # Backward compatibility: sync booking_date with booking_start_date
+        if self.booking_start_date and not self.booking_date:
+            self.booking_date = self.booking_start_date
+        elif self.booking_date and not self.booking_start_date:
+            self.booking_start_date = self.booking_date
+            # If no end date, default to 1 night
+            if not self.booking_end_date:
+                self.booking_end_date = self.booking_date + timedelta(days=1)
+                self.num_nights = 1
+
         # Set expiration time for new DRAFT bookings
         if not self.pk and self.status == "DRAFT" and not self.expires_at:
             self.expires_at = timezone.now() + timedelta(minutes=20)

@@ -64,14 +64,27 @@ class BookingService:
         customer_phone,
         traveler_details=None,
         special_requests="",
+        # PHASE 1: New parameters
+        booking_end_date=None,
+        num_rooms=1,
+        room_allocation=None,
+        room_preferences="",
     ):
         """
         BACKEND-AUTHORITATIVE: Calculate price and create booking.
         Frontend NEVER sends total_price.
 
+        PHASE 1 UPDATE: Now supports date ranges and room allocation.
+
         Args:
             traveler_details: List of dicts with 'name', 'age', 'gender' for each traveler
+            booking_end_date: Trip end date (PHASE 1)
+            num_rooms: Number of rooms required (PHASE 1)
+            room_allocation: Room allocation details (PHASE 1)
+            room_preferences: User's room preferences (PHASE 1)
         """
+        from datetime import timedelta
+
         try:
             # Fetch all components
             experiences = Experience.objects.filter(id__in=experience_ids)
@@ -89,9 +102,20 @@ class BookingService:
                         f"does not match num_travelers ({num_travelers})"
                     )
 
+            # PHASE 1: Set default end date if not provided
+            if not booking_end_date:
+                booking_end_date = booking_date + timedelta(days=1)
+
             # Calculate price on backend only (per-person price)
+            # PHASE 1: Pass date range and room count
             calculated_price = PricingService.calculate_total(
-                package, experiences, hotel_tier, transport_option
+                package,
+                experiences,
+                hotel_tier,
+                transport_option,
+                start_date=booking_date,
+                end_date=booking_end_date,
+                num_rooms=num_rooms,
             )
 
             # Calculate total amount to be paid (per-person × chargeable travelers)
@@ -104,10 +128,17 @@ class BookingService:
 
             total_amount_paid = calculated_price * chargeable_count
 
+            # PHASE 1: Calculate hotel costs separately for breakdown
+            hotel_cost_info = PricingService.calculate_hotel_cost(
+                hotel_tier, booking_date, booking_end_date, num_rooms
+            )
+
             logger.info(
                 f"BOOKING CREATION AUDIT: user={user.id}, package={package.slug}, "
                 f"per_person_price={calculated_price}, num_travelers={num_travelers}, "
                 f"chargeable_travelers={chargeable_count}, total_amount_paid={total_amount_paid}, "
+                f"dates={booking_date} to {booking_end_date}, num_rooms={num_rooms}, "
+                f"hotel_cost={hotel_cost_info.get('total_cost')}, "
                 f"traveler_ages={[t.get('age') for t in (traveler_details or [])]}, "
                 f"components: exp={len(experiences)}, hotel={hotel_tier.name}, transport={transport_option.name}"
             )
@@ -122,7 +153,19 @@ class BookingService:
                     total_price=calculated_price,  # Per-person price
                     total_amount_paid=total_amount_paid,  # Total amount to be charged
                     status="DRAFT",
-                    booking_date=booking_date,
+                    # PHASE 1: New date fields
+                    booking_date=booking_date,  # Keep for backward compatibility
+                    booking_start_date=booking_date,
+                    booking_end_date=booking_end_date,
+                    # num_nights will be auto-calculated in model save()
+                    # PHASE 1: Room fields
+                    num_rooms_required=num_rooms,
+                    room_allocation=room_allocation or [],
+                    room_preferences=room_preferences,
+                    # PHASE 1: Hotel cost breakdown
+                    hotel_cost_per_night=hotel_cost_info.get("cost_per_night"),
+                    total_hotel_cost=hotel_cost_info.get("total_cost"),
+                    # Existing fields
                     num_travelers=num_travelers,
                     traveler_details=traveler_details or [],
                     customer_name=customer_name,

@@ -1,166 +1,141 @@
 from django.contrib import admin
-from django.utils import timezone
 from django.utils.html import format_html
 
-from .models import PricingRule
+from .models import PricingConfiguration, PricingRule
 
 
 @admin.register(PricingRule)
 class PricingRuleAdmin(admin.ModelAdmin):
     list_display = [
         "name",
-        "rule_type_badge",
+        "rule_type",
         "value_display",
         "target_package",
-        "status_badge",
         "active_from",
         "active_to",
+        "is_active",
     ]
-    list_filter = ["rule_type", "is_percentage", "is_active", "active_from"]
-    search_fields = ["name", "target_package__name"]
-    list_editable = []  # Removed is_active from here for better UX
+    list_filter = ["rule_type", "is_active", "is_percentage", "active_from"]
+    search_fields = ["name", "description"]
     date_hierarchy = "active_from"
-
-    # Add actions for bulk operations
-    actions = ["activate_rules", "deactivate_rules", "duplicate_rule"]
 
     fieldsets = (
         (
-            "Rule Details",
+            "Basic Information",
+            {"fields": ("name", "description", "rule_type", "value", "is_percentage")},
+        ),
+        (
+            "Applicability",
             {
-                "fields": ("name", "rule_type", "value", "is_percentage"),
-                "description": "Define the pricing rule name, type, and value. "
-                "For taxes like GST, use MARKUP type with percentage.",
+                "fields": ("target_package", "is_active"),
+                "description": "Leave target_package blank to apply to all packages",
             },
         ),
         (
-            "Targeting",
+            "Validity Period",
             {
-                "fields": ("target_package",),
-                "description": "Leave empty to apply to ALL packages. "
-                "Select a specific package to apply only to that package.",
-            },
-        ),
-        (
-            "Activation",
-            {
-                "fields": ("is_active", "active_from", "active_to"),
-                "description": "Control when this rule is active. "
-                "Leave 'Active To' empty for indefinite duration.",
+                "fields": ("active_from", "active_to"),
+                "description": "Leave active_to blank for indefinite validity",
             },
         ),
     )
 
-    # Make the form more user-friendly
-    readonly_fields = []
-
-    def rule_type_badge(self, obj):
-        """Display rule type with color badge"""
-        if obj.rule_type == "MARKUP":
-            color = "orange"
-            icon = "+"
-        else:
-            color = "green"
-            icon = "-"
-        return format_html(
-            '<span style="background-color: {}; color: white; padding: 3px 10px; '
-            'border-radius: 3px; font-weight: bold;">{} {}</span>',
-            color,
-            icon,
-            obj.get_rule_type_display(),
-        )
-
-    rule_type_badge.short_description = "Type"
-
     def value_display(self, obj):
-        """Display value with proper formatting"""
         if obj.is_percentage:
-            return format_html(
-                '<strong style="color: #0066cc;">{}%</strong>', float(obj.value)
-            )
-        else:
-            return format_html(
-                '<strong style="color: #0066cc;">₹{}</strong>',
-                f"{float(obj.value):,.2f}",
-            )
+            return f"{obj.value}%"
+        return f"₹{obj.value}"
 
     value_display.short_description = "Value"
 
-    def status_badge(self, obj):
-        """Display active status with badge"""
-        now = timezone.now()
 
-        # Check if rule is currently active based on dates
-        is_currently_active = (
-            obj.is_active
-            and obj.active_from <= now
-            and (obj.active_to is None or obj.active_to >= now)
-        )
+@admin.register(PricingConfiguration)
+class PricingConfigurationAdmin(admin.ModelAdmin):
+    """
+    Admin interface for global pricing configuration.
+    This is a singleton model - only one instance exists.
+    """
 
-        if is_currently_active:
-            return format_html(
-                '<span style="background-color: #28a745; color: white; padding: 3px 10px; '
-                'border-radius: 3px; font-weight: bold;">✓ Active</span>'
-            )
-        elif obj.is_active and obj.active_from > now:
-            return format_html(
-                '<span style="background-color: #ffc107; color: black; padding: 3px 10px; '
-                'border-radius: 3px; font-weight: bold;">⏰ Scheduled</span>'
-            )
-        elif obj.is_active and obj.active_to and obj.active_to < now:
-            return format_html(
-                '<span style="background-color: #6c757d; color: white; padding: 3px 10px; '
-                'border-radius: 3px; font-weight: bold;">⏹ Expired</span>'
-            )
-        else:
-            return format_html(
-                '<span style="background-color: #dc3545; color: white; padding: 3px 10px; '
-                'border-radius: 3px; font-weight: bold;">✗ Inactive</span>'
-            )
+    list_display = [
+        "id",
+        "chargeable_age_threshold",
+        "default_weekend_multiplier",
+        "min_advance_booking_days",
+        "max_advance_booking_days",
+        "updated_at",
+        "updated_by",
+    ]
 
-    status_badge.short_description = "Status"
+    readonly_fields = ["updated_at", "updated_by"]
 
-    # Bulk actions
-    def activate_rules(self, request, queryset):
-        """Activate selected pricing rules"""
-        updated = queryset.update(is_active=True)
-        self.message_user(request, f"{updated} pricing rule(s) activated successfully.")
+    fieldsets = (
+        (
+            "Age-Based Pricing",
+            {
+                "fields": ("chargeable_age_threshold",),
+                "description": format_html(
+                    "<p><strong>Chargeable Age Threshold:</strong> Travelers below this age travel free. "
+                    "Only travelers at or above this age are charged.</p>"
+                    "<p><em>Example: If set to 5, children under 5 years old are free.</em></p>"
+                ),
+            },
+        ),
+        (
+            "Weekend & Seasonal Pricing",
+            {
+                "fields": (
+                    "default_weekend_multiplier",
+                    "weekend_days",
+                    "seasonal_pricing_rules",
+                ),
+                "description": format_html(
+                    "<p><strong>Weekend Days:</strong> List of days considered as weekend (0=Monday, 6=Sunday).</p>"
+                    "<p><strong>Seasonal Pricing:</strong> JSON format for seasonal rules.</p>"
+                    '<p><em>Example: {{"summer": {{"start": "06-01", "end": "08-31", "multiplier": 1.2}}}}</em></p>'
+                ),
+            },
+        ),
+        (
+            "Booking Policies",
+            {
+                "fields": ("min_advance_booking_days", "max_advance_booking_days"),
+                "description": format_html(
+                    "<p><strong>Advance Booking:</strong> Control how far in advance customers can book.</p>"
+                    "<p><em>Example: Min=1 (book at least 1 day ahead), Max=365 (book up to 1 year ahead)</em></p>"
+                ),
+            },
+        ),
+        (
+            "Metadata",
+            {
+                "fields": ("updated_at", "updated_by"),
+                "classes": ("collapse",),
+            },
+        ),
+    )
 
-    activate_rules.short_description = "✓ Activate selected rules"
+    def has_add_permission(self, request):
+        # Only allow one instance (singleton)
+        return not PricingConfiguration.objects.exists()
 
-    def deactivate_rules(self, request, queryset):
-        """Deactivate selected pricing rules"""
-        updated = queryset.update(is_active=False)
-        self.message_user(
-            request, f"{updated} pricing rule(s) deactivated successfully."
-        )
+    def has_delete_permission(self, request, obj=None):
+        # Don't allow deletion of the configuration
+        return False
 
-    deactivate_rules.short_description = "✗ Deactivate selected rules"
+    def save_model(self, request, obj, form, change):
+        # Track who updated the configuration
+        obj.updated_by = request.user
+        super().save_model(request, obj, form, change)
 
-    def duplicate_rule(self, request, queryset):
-        """Duplicate selected pricing rules"""
-        count = 0
-        for rule in queryset:
-            rule.pk = None
-            rule.name = f"{rule.name} (Copy)"
-            rule.is_active = False  # Duplicates start as inactive
-            rule.save()
-            count += 1
-        self.message_user(
-            request,
-            f"{count} pricing rule(s) duplicated successfully. "
-            "Duplicates are inactive by default.",
-        )
-
-    duplicate_rule.short_description = "📋 Duplicate selected rules"
-
-    # Add helpful text at the top of the admin page
     def changelist_view(self, request, extra_context=None):
-        extra_context = extra_context or {}
-        extra_context["title"] = "Manage Tax & Pricing Rules"
-        extra_context["subtitle"] = (
-            "💡 Tip: To change GST rate when government updates it, "
-            "simply edit the 'GST' rule and update the value. "
-            "Changes apply immediately to all new price calculations."
-        )
+        # If no config exists, create one and redirect to edit
+        if not PricingConfiguration.objects.exists():
+            config = PricingConfiguration.get_config()
+            from django.shortcuts import redirect
+            from django.urls import reverse
+
+            return redirect(
+                reverse(
+                    "admin:pricing_engine_pricingconfiguration_change", args=[config.pk]
+                )
+            )
         return super().changelist_view(request, extra_context)

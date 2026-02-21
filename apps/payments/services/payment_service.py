@@ -74,15 +74,15 @@ class RazorpayService:
         webhook_secret = secret or getattr(
             settings, "RAZORPAY_WEBHOOK_SECRET", "placeholder_secret"
         )
-        
+
         if not signature:
             logger.warning("No signature provided in webhook request")
             return False
-            
+
         if not self.client:
             logger.error("Razorpay client not initialized")
             return False
-            
+
         try:
             self.client.utility.verify_webhook_signature(
                 body, signature, webhook_secret

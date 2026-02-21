@@ -11,16 +11,124 @@ logger = logging.getLogger(__name__)
 
 
 class PricingService:
-    # Age threshold for chargeable travelers
+    # PHASE 3: Age threshold now configurable via PricingConfiguration
+    # This is a fallback default if config is not available
     CHARGEABLE_AGE_THRESHOLD = 5
 
     @staticmethod
+    def get_chargeable_age_threshold():
+        """
+        Get the chargeable age threshold from configuration.
+        Falls back to default if configuration is not available.
+        """
+        try:
+            from ..models import PricingConfiguration
+
+            config = PricingConfiguration.get_config()
+            return config.chargeable_age_threshold
+        except Exception as e:
+            logger.warning(
+                f"Failed to get age threshold from config: {e}. Using default."
+            )
+            return PricingService.CHARGEABLE_AGE_THRESHOLD
+
+    @staticmethod
+    def calculate_hotel_cost(
+        hotel_tier, start_date, end_date, num_rooms=1, use_legacy=False
+    ):
+        """
+        PHASE 1: Calculate hotel cost based on date range and number of rooms.
+
+        Args:
+            hotel_tier: HotelTier instance
+            start_date: datetime.date - Trip start date
+            end_date: datetime.date - Trip end date
+            num_rooms: int - Number of rooms required
+            use_legacy: bool - If True, use legacy multiplier calculation
+
+        Returns:
+            dict: {
+                'total_cost': Decimal,
+                'cost_per_night': Decimal,
+                'num_nights': int,
+                'breakdown': list of {date, is_weekend, price_per_night}
+            }
+        """
+        from datetime import timedelta
+
+        # Check if hotel tier has new pricing model
+        if not use_legacy and hotel_tier.base_price_per_night:
+            total_cost = Decimal("0.00")
+            breakdown = []
+            current_date = start_date
+
+            while current_date < end_date:
+                # Check if weekend (Friday=4, Saturday=5, Sunday=6)
+                is_weekend = current_date.weekday() >= 4
+
+                # Calculate price for this night
+                base_price = hotel_tier.base_price_per_night
+                if is_weekend:
+                    price_per_night = base_price * hotel_tier.weekend_multiplier
+                else:
+                    price_per_night = base_price
+
+                # Multiply by number of rooms
+                night_cost = price_per_night * num_rooms
+                total_cost += night_cost
+
+                breakdown.append(
+                    {
+                        "date": current_date,
+                        "is_weekend": is_weekend,
+                        "price_per_night": price_per_night,
+                        "num_rooms": num_rooms,
+                        "night_cost": night_cost,
+                    }
+                )
+
+                current_date += timedelta(days=1)
+
+            num_nights = (end_date - start_date).days
+            cost_per_night = total_cost / num_nights if num_nights > 0 else total_cost
+
+            return {
+                "total_cost": total_cost.quantize(Decimal("0.01")),
+                "cost_per_night": cost_per_night.quantize(Decimal("0.01")),
+                "num_nights": num_nights,
+                "num_rooms": num_rooms,
+                "breakdown": breakdown,
+                "uses_new_pricing": True,
+            }
+        else:
+            # Legacy fallback: return None to indicate legacy pricing should be used
+            return {
+                "total_cost": None,
+                "cost_per_night": None,
+                "num_nights": (
+                    (end_date - start_date).days if start_date and end_date else 1
+                ),
+                "num_rooms": num_rooms,
+                "breakdown": [],
+                "uses_new_pricing": False,
+            }
+
+    @staticmethod
     def calculate_total(
-        package, experiences, hotel_tier, transport_option, travelers=None
+        package,
+        experiences,
+        hotel_tier,
+        transport_option,
+        travelers=None,
+        start_date=None,
+        end_date=None,
+        num_rooms=1,
     ):
         """
         Calculates total price based on selected components and active rules.
         Logic is strictly backend-side and deterministic.
+
+        PHASE 1 UPDATE: Now supports date-based hotel pricing.
 
         Args:
             package: Package instance
@@ -28,23 +136,42 @@ class PricingService:
             hotel_tier: HotelTier instance
             transport_option: TransportOption instance
             travelers: Optional list of traveler dicts with 'age' field for age-based pricing
+            start_date: Optional datetime.date for hotel pricing
+            end_date: Optional datetime.date for hotel pricing
+            num_rooms: Number of rooms required (default: 1)
 
         Returns:
             Decimal: Total price (per-person if travelers not provided, total if provided)
         """
         # Get price breakdown for detailed calculation
         breakdown = PricingService.get_price_breakdown(
-            package, experiences, hotel_tier, transport_option, travelers
+            package,
+            experiences,
+            hotel_tier,
+            transport_option,
+            travelers,
+            start_date,
+            end_date,
+            num_rooms,
         )
 
         return breakdown["final_total"]
 
     @staticmethod
     def get_price_breakdown(
-        package, experiences, hotel_tier, transport_option, travelers=None
+        package,
+        experiences,
+        hotel_tier,
+        transport_option,
+        travelers=None,
+        start_date=None,
+        end_date=None,
+        num_rooms=1,
     ):
         """
         Get detailed price breakdown for transparency.
+
+        PHASE 1 UPDATE: Now includes date-based hotel pricing.
 
         Args:
             package: Package instance
@@ -52,9 +179,12 @@ class PricingService:
             hotel_tier: HotelTier instance
             transport_option: TransportOption instance
             travelers: Optional list of traveler dicts with 'age' field
+            start_date: Optional datetime.date for hotel pricing
+            end_date: Optional datetime.date for hotel pricing
+            num_rooms: Number of rooms required (default: 1)
 
         Returns:
-            dict: Detailed price breakdown including age-based calculations
+            dict: Detailed price breakdown including age-based calculations and hotel costs
         """
         # 1. Base experiences price
         base_experience_total = (
@@ -66,11 +196,38 @@ class PricingService:
         # 2. Transport cost
         transport_cost = transport_option.base_price
 
-        # 3. Subtotal before hotel multiplier
-        subtotal_before_hotel = base_experience_total + transport_cost
+        # 3. Hotel cost calculation (PHASE 1: New logic)
+        hotel_cost_info = None
+        if start_date and end_date and hotel_tier.base_price_per_night:
+            # Use new date-based pricing
+            hotel_cost_info = PricingService.calculate_hotel_cost(
+                hotel_tier, start_date, end_date, num_rooms
+            )
+            hotel_cost = hotel_cost_info["total_cost"] or Decimal("0.00")
+        else:
+            # Legacy: Use multiplier-based pricing
+            hotel_cost = Decimal("0.00")
+            hotel_cost_info = {
+                "uses_new_pricing": False,
+                "total_cost": None,
+                "cost_per_night": None,
+                "num_nights": 1,
+                "num_rooms": num_rooms,
+                "breakdown": [],
+            }
 
-        # 4. Apply Hotel Multiplier
-        subtotal_after_hotel = subtotal_before_hotel * hotel_tier.price_multiplier
+        # 4. Subtotal calculation
+        if hotel_cost_info["uses_new_pricing"]:
+            # New model: Add hotel cost directly
+            subtotal_before_rules = base_experience_total + transport_cost + hotel_cost
+            # For backward compatibility, still calculate what the old model would have been
+            subtotal_before_hotel = base_experience_total + transport_cost
+            subtotal_after_hotel = subtotal_before_hotel * hotel_tier.price_multiplier
+        else:
+            # Legacy model: Apply multiplier
+            subtotal_before_hotel = base_experience_total + transport_cost
+            subtotal_after_hotel = subtotal_before_hotel * hotel_tier.price_multiplier
+            subtotal_before_rules = subtotal_after_hotel
 
         # 5. Apply Pricing Rules
         applicable_rules = PricingService.get_applicable_rules(package)
@@ -79,7 +236,7 @@ class PricingService:
         total_discount = Decimal("0.00")
         applied_rules = []
 
-        current_total = subtotal_after_hotel
+        current_total = subtotal_before_rules
 
         for rule in applicable_rules:
             rule_amount = Decimal("0.00")
@@ -118,12 +275,13 @@ class PricingService:
         total_travelers = None
         total_amount = final_total  # Default to per-person price
 
+        # Get configurable age threshold
+        age_threshold = PricingService.get_chargeable_age_threshold()
+
         if travelers:
             total_travelers = len(travelers)
             chargeable_travelers = sum(
-                1
-                for t in travelers
-                if t.get("age", 0) >= PricingService.CHARGEABLE_AGE_THRESHOLD
+                1 for t in travelers if t.get("age", 0) >= age_threshold
             )
             # Multiply per-person price by chargeable travelers
             total_amount = (final_total * chargeable_travelers).quantize(
@@ -133,9 +291,33 @@ class PricingService:
         return {
             "base_experience_total": base_experience_total.quantize(Decimal("0.01")),
             "transport_cost": transport_cost.quantize(Decimal("0.01")),
-            "subtotal_before_hotel": subtotal_before_hotel.quantize(Decimal("0.01")),
+            "subtotal_before_hotel": (
+                subtotal_before_hotel.quantize(Decimal("0.01"))
+                if not hotel_cost_info["uses_new_pricing"]
+                else base_experience_total.quantize(Decimal("0.01"))
+            ),
             "hotel_multiplier": hotel_tier.price_multiplier,
-            "subtotal_after_hotel": subtotal_after_hotel.quantize(Decimal("0.01")),
+            "subtotal_after_hotel": (
+                subtotal_after_hotel.quantize(Decimal("0.01"))
+                if not hotel_cost_info["uses_new_pricing"]
+                else (base_experience_total + transport_cost).quantize(Decimal("0.01"))
+            ),
+            # PHASE 1: New hotel cost fields
+            "hotel_cost": (
+                hotel_cost.quantize(Decimal("0.01"))
+                if hotel_cost_info["uses_new_pricing"]
+                else None
+            ),
+            "hotel_cost_per_night": (
+                hotel_cost_info["cost_per_night"].quantize(Decimal("0.01"))
+                if hotel_cost_info["cost_per_night"]
+                else None
+            ),
+            "hotel_num_nights": hotel_cost_info["num_nights"],
+            "hotel_num_rooms": hotel_cost_info["num_rooms"],
+            "hotel_breakdown": hotel_cost_info["breakdown"],
+            "uses_new_hotel_pricing": hotel_cost_info["uses_new_pricing"],
+            # End PHASE 1 additions
             "total_markup": total_markup.quantize(Decimal("0.01")),
             "total_discount": total_discount.quantize(Decimal("0.01")),
             "final_total": final_total,  # Per-person price
@@ -144,7 +326,7 @@ class PricingService:
             "chargeable_travelers": chargeable_travelers,
             "total_travelers": total_travelers,
             "total_amount": total_amount,  # Total price (per-person * chargeable)
-            "chargeable_age_threshold": PricingService.CHARGEABLE_AGE_THRESHOLD,
+            "chargeable_age_threshold": age_threshold,
         }
 
     @staticmethod

@@ -168,10 +168,106 @@ class ExperienceAdmin(admin.ModelAdmin):
 
 @admin.register(HotelTier)
 class HotelTierAdmin(admin.ModelAdmin):
-    list_display = ["name", "price_multiplier"]
+    list_display = [
+        "name",
+        "base_price_per_night_display",
+        "weekend_multiplier",
+        "max_occupancy_per_room",
+        "price_multiplier_legacy",
+    ]
     search_fields = ["name", "description"]
-    list_filter = ["price_multiplier"]
-    ordering = ["price_multiplier"]
+    list_filter = ["max_occupancy_per_room", "weekend_multiplier"]
+    ordering = ["base_price_per_night", "price_multiplier"]
+    list_editable = ["weekend_multiplier", "max_occupancy_per_room"]
+
+    fieldsets = (
+        (
+            "Basic Information",
+            {
+                "fields": ("name", "description"),
+            },
+        ),
+        (
+            "PHASE 1: New Pricing Model (Recommended)",
+            {
+                "fields": (
+                    "base_price_per_night",
+                    "weekend_multiplier",
+                    "max_occupancy_per_room",
+                    "room_types",
+                    "amenities",
+                ),
+                "description": "Use this pricing model for accurate hotel cost calculation based on dates and rooms.",
+            },
+        ),
+        (
+            "Legacy Pricing (Deprecated)",
+            {
+                "fields": ("price_multiplier",),
+                "classes": ("collapse",),
+                "description": "DEPRECATED: This field is kept for backward compatibility only. Use base_price_per_night instead.",
+            },
+        ),
+    )
+
+    def base_price_per_night_display(self, obj):
+        """Display base price with formatting"""
+        if obj.base_price_per_night:
+            return format_html(
+                '<span style="color: green; font-weight: bold;">₹{}</span>',
+                obj.base_price_per_night,
+            )
+        return format_html('<span style="color: red;">Not set (using legacy)</span>')
+
+    base_price_per_night_display.short_description = "Base Price/Night"
+
+    def price_multiplier_legacy(self, obj):
+        """Display legacy multiplier with deprecation warning"""
+        if obj.base_price_per_night:
+            return format_html(
+                '<span style="color: gray; text-decoration: line-through;">{}</span>',
+                obj.price_multiplier,
+            )
+        return format_html(
+            '<span style="color: orange; font-weight: bold;">{} (active)</span>',
+            obj.price_multiplier,
+        )
+
+    price_multiplier_legacy.short_description = "Legacy Multiplier"
+
+    # Admin actions
+    @admin.action(description="Set default pricing for selected tiers")
+    def set_default_pricing(self, request, queryset):
+        """Set default pricing values for tiers without base_price_per_night"""
+        count = 0
+        for tier in queryset:
+            if not tier.base_price_per_night:
+                # Set default based on multiplier
+                if tier.price_multiplier <= 1.0:
+                    tier.base_price_per_night = Decimal("1500")  # Budget
+                elif tier.price_multiplier <= 2.0:
+                    tier.base_price_per_night = Decimal("2500")  # Standard
+                else:
+                    tier.base_price_per_night = Decimal("4000")  # Luxury
+
+                tier.weekend_multiplier = Decimal("1.3")
+                tier.max_occupancy_per_room = 2
+                tier.room_types = {
+                    "single": float(tier.base_price_per_night * Decimal("0.85")),
+                    "double": float(tier.base_price_per_night),
+                    "family": float(tier.base_price_per_night * Decimal("1.5")),
+                }
+                tier.amenities = ["WiFi", "Breakfast", "AC"]
+                tier.save()
+                count += 1
+
+        self.message_user(
+            request,
+            f"Set default pricing for {count} hotel tier(s).",
+            level="success",
+        )
+
+    actions = ["set_default_pricing"]
 
 
 @admin.register(TransportOption)
