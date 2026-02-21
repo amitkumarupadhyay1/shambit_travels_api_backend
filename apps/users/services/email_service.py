@@ -102,3 +102,71 @@ ShamBit Team
             bool: True if email sent successfully, False otherwise
         """
         return EmailService.send_otp_email(email, otp, purpose="reset_password")
+
+    @staticmethod
+    def send_booking_confirmation_email(booking):
+        """
+        Send booking confirmation email with details.
+
+        Args:
+            booking: Booking instance
+
+        Returns:
+            bool: True if email sent successfully, False otherwise
+        """
+        try:
+            subject = f"Booking Confirmed - {booking.booking_reference}"
+            from_email = settings.DEFAULT_FROM_EMAIL
+            recipient_email = booking.customer_email or booking.user.email
+
+            # Plain text message
+            message = f"""
+Hello {booking.customer_name},
+
+Your booking has been confirmed!
+
+Booking Reference: {booking.booking_reference}
+Package: {booking.package.name}
+Travel Date: {booking.booking_date}
+Number of Travelers: {booking.num_travelers}
+Total Amount Paid: ₹{booking.total_amount_paid}
+
+Hotel: {booking.selected_hotel_tier.name}
+Transport: {booking.selected_transport.name}
+
+You can download your voucher from your bookings page.
+
+If you have any questions, please contact us.
+
+Best regards,
+ShamBit Travels Team
+            """.strip()
+
+            # Send email with timeout handling
+            from django.core.mail import get_connection
+
+            connection = get_connection(
+                fail_silently=False,
+                timeout=30,
+            )
+
+            send_mail(
+                subject=subject,
+                message=message,
+                from_email=from_email,
+                recipient_list=[recipient_email],
+                fail_silently=False,
+                connection=connection,
+            )
+
+            logger.info(
+                f"Booking confirmation email sent to {recipient_email} "
+                f"for booking {booking.id}"
+            )
+            return True
+
+        except Exception as e:
+            logger.error(
+                f"Failed to send booking confirmation email for booking {booking.id}: {str(e)}"
+            )
+            return False

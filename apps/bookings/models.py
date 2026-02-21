@@ -169,3 +169,12 @@ class Booking(models.Model):
         Only DRAFT bookings can be deleted.
         """
         return self.status == "DRAFT"
+
+    @property
+    def booking_reference(self):
+        """
+        Generate a user-friendly booking reference.
+        Format: SB-YYYY-NNNNNN (e.g., SB-2024-000123)
+        """
+        year = self.created_at.year
+        return f"SB-{year}-{str(self.id).zfill(6)}"

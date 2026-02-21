@@ -89,3 +89,76 @@ class OTPService:
         except Exception as e:
             logger.error(f"Failed to send OTP to {phone}: {str(e)}")
             return False
+
+    @staticmethod
+    def send_booking_confirmation_sms(booking):
+        """
+        Send booking confirmation SMS.
+
+        Args:
+            booking: Booking instance
+
+        Returns:
+            bool: True if SMS sent successfully, False otherwise
+        """
+        api_key = getattr(
+            settings, "FAST2SMS_API_KEY", os.environ.get("FAST2SMS_API_KEY")
+        )
+
+        if not api_key:
+            logger.warning(
+                f"Fast2SMS API key not found. Booking confirmation for {booking.customer_phone}"
+            )
+            if settings.DEBUG:
+                logger.info(
+                    f"[DEV] Booking confirmation SMS for {booking.customer_phone}: "
+                    f"Ref: {booking.booking_reference}, Package: {booking.package.name}"
+                )
+                return True
+            return False
+
+        phone = booking.customer_phone
+        if not phone:
+            logger.warning(f"No phone number for booking {booking.id}")
+            return False
+
+        # SMS message
+        message = (
+            f"Booking Confirmed! Ref: {booking.booking_reference}. "
+            f"Package: {booking.package.name}. "
+            f"Date: {booking.booking_date}. "
+            f"Download voucher from your account. -ShamBit Travels"
+        )
+
+        url = "https://www.fast2sms.com/dev/bulkV2"
+        payload = {
+            "route": "q",
+            "message": message,
+            "language": "english",
+            "flash": 0,
+            "numbers": phone,
+        }
+        headers = {
+            "authorization": api_key,
+            "Content-Type": "application/json",
+        }
+
+        try:
+            response = requests.post(url, json=payload, headers=headers, timeout=5)
+            response.raise_for_status()
+            data = response.json()
+
+            if data.get("return") == True:
+                logger.info(
+                    f"Booking confirmation SMS sent to {phone} for booking {booking.id}"
+                )
+                return True
+            else:
+                logger.error(f"Fast2SMS error for booking {booking.id}: {data}")
+                return False
+
+        except Exception as e:
+            logger.error(
+                f"Failed to send booking confirmation SMS for booking {booking.id}: {str(e)}"
+            )
+            return False

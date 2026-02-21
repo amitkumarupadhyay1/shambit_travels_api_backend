@@ -53,12 +53,31 @@ class NotificationService:
     @staticmethod
     def notify_booking_confirmed(booking):
         """Send notification when booking confirmed"""
-        return NotificationService.create_notification(
+        # Create in-app notification
+        notification = NotificationService.create_notification(
             user=booking.user,
             title="Booking Confirmed!",
             message=f"Your booking for {booking.package.name} has been confirmed! "
             f"Check your email for details.",
         )
+
+        # Send email confirmation
+        try:
+            from users.services.email_service import EmailService
+
+            EmailService.send_booking_confirmation_email(booking)
+        except Exception as e:
+            logger.warning(f"Failed to send booking confirmation email: {str(e)}")
+
+        # Send SMS confirmation
+        try:
+            from users.services.otp_service import OTPService
+
+            OTPService.send_booking_confirmation_sms(booking)
+        except Exception as e:
+            logger.warning(f"Failed to send booking confirmation SMS: {str(e)}")
+
+        return notification
 
     @staticmethod
     def notify_payment_failed(booking):
