@@ -15,7 +15,11 @@ class RazorpayService:
     def __init__(self):
         self.key_id = getattr(settings, "RAZORPAY_KEY_ID", "rzp_test_placeholder")
         self.key_secret = getattr(settings, "RAZORPAY_KEY_SECRET", "placeholder_secret")
-        self.client = razorpay.Client(auth=(self.key_id, self.key_secret))
+        try:
+            self.client = razorpay.Client(auth=(self.key_id, self.key_secret))
+        except Exception as e:
+            logger.error(f"Failed to initialize Razorpay client: {str(e)}")
+            self.client = None
 
     def create_order(self, booking):
         """
@@ -70,12 +74,24 @@ class RazorpayService:
         webhook_secret = secret or getattr(
             settings, "RAZORPAY_WEBHOOK_SECRET", "placeholder_secret"
         )
+        
+        if not signature:
+            logger.warning("No signature provided in webhook request")
+            return False
+            
+        if not self.client:
+            logger.error("Razorpay client not initialized")
+            return False
+            
         try:
             self.client.utility.verify_webhook_signature(
                 body, signature, webhook_secret
             )
             return True
         except razorpay.errors.SignatureVerificationError:
+            return False
+        except Exception as e:
+            logger.error(f"Webhook signature verification error: {str(e)}")
             return False
 
     @staticmethod

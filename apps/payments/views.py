@@ -22,14 +22,18 @@ def razorpay_webhook(request):
     """
     Razorpay webhook handler with FULL VALIDATION.
     """
-    signature = request.headers.get("X-Razorpay-Signature")
-    body = request.body.decode("utf-8")
+    try:
+        signature = request.headers.get("X-Razorpay-Signature")
+        body = request.body.decode("utf-8")
 
-    # Step 1: Verify webhook signature
-    razorpay_service = RazorpayService()
-    if not razorpay_service.verify_webhook_signature(body, signature):
-        logger.warning(f"Invalid Razorpay signature detected")
-        return HttpResponse(status=400)
+        # Step 1: Verify webhook signature
+        razorpay_service = RazorpayService()
+        if not razorpay_service.verify_webhook_signature(body, signature):
+            logger.warning(f"Invalid Razorpay signature detected")
+            return HttpResponse(status=400)
+    except Exception as e:
+        logger.error(f"Webhook signature verification error: {str(e)}")
+        return HttpResponse(status=500)
 
     data = json.loads(body)
     event = data.get("event")
