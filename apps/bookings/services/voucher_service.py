@@ -189,7 +189,7 @@ class VoucherService:
         elements.append(Paragraph("Package Details", heading_style))
         package_data = [
             ["Package:", booking.package.name],
-            ["Destination:", booking.package.city_name],
+            ["Destination:", booking.package.city.name],
             ["Travel Date:", booking.booking_date.strftime("%d %B %Y")],
             ["Number of Travelers:", str(booking.num_travelers)],
         ]
