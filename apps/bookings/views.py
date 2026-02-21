@@ -455,6 +455,313 @@ class BookingViewSet(viewsets.ModelViewSet):
         )
 
     @extend_schema(
+        operation_id="verify_payment",
+        summary="Verify payment after Razorpay success",
+        description=(
+            "Verifies payment with Razorpay API and updates booking status. "
+            "Call this after receiving payment success from Razorpay frontend. "
+            "This is a fallback mechanism in case webhook fails."
+        ),
+        request=inline_serializer(
+            name="VerifyPaymentRequest",
+            fields={
+                "razorpay_payment_id": serializers.CharField(),
+                "razorpay_order_id": serializers.CharField(),
+                "razorpay_signature": serializers.CharField(),
+            },
+        ),
+        responses={
+            200: inline_serializer(
+                name="VerifyPaymentResponse",
+                fields={
+                    "success": serializers.BooleanField(),
+                    "message": serializers.CharField(),
+                    "booking_status": serializers.CharField(),
+                    "booking_reference": serializers.CharField(),
+                },
+            ),
+            400: OpenApiExample(
+                "Verification failed",
+                value={"error": "Payment verification failed"},
+                response_only=True,
+            ),
+        },
+    )
+    @action(detail=True, methods=["post"])
+    def verify_payment(self, request, pk=None):
+        """
+        Verify payment with Razorpay and update booking status.
+
+        SECURITY: Multiple layers of verification ensure payment is ACTUALLY deducted:
+        1. Signature verification (prevents fake payments)
+        2. Fetch from Razorpay API (confirms payment exists)
+        3. Status check (must be "captured" - money deducted)
+        4. Amount validation (exact match required)
+        5. Refund check (rejects refunded payments)
+        """
+        booking = self.get_object()
+
+        razorpay_payment_id = request.data.get("razorpay_payment_id")
+        razorpay_order_id = request.data.get("razorpay_order_id")
+        razorpay_signature = request.data.get("razorpay_signature")
+
+        # Security Check 1: All parameters present
+        if not all([razorpay_payment_id, razorpay_order_id, razorpay_signature]):
+            logger.error(f"Missing payment parameters for booking {booking.id}")
+            return Response(
+                {"error": "Missing required payment parameters"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Security Check 2: Booking belongs to requesting user
+        if booking.user != request.user:
+            logger.error(
+                f"User {request.user.id} attempted to verify booking {booking.id} "
+                f"belonging to user {booking.user.id}"
+            )
+            return Response(
+                {"error": "Unauthorized access"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Security Check 3: Check if booking is already confirmed
+        if booking.status == "CONFIRMED":
+            logger.info(
+                f"Booking {booking.id} already confirmed, skipping verification"
+            )
+            return Response(
+                {
+                    "success": True,
+                    "message": "Booking already confirmed",
+                    "booking_status": booking.status,
+                    "booking_reference": booking.booking_reference,
+                }
+            )
+
+        # Security Check 4: Booking is in correct state
+        if booking.status not in ["PENDING_PAYMENT", "DRAFT"]:
+            logger.error(
+                f"Cannot verify payment for booking {booking.id} "
+                f"with status {booking.status}"
+            )
+            return Response(
+                {"error": f"Cannot verify payment for {booking.status} bookings"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Security Check 5: Booking not expired
+        if booking.expires_at and booking.expires_at < timezone.now():
+            logger.error(f"Booking {booking.id} has expired")
+            return Response(
+                {"error": "Booking has expired"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            with transaction.atomic():
+                # Get payment record
+                from payments.models import Payment
+
+                try:
+                    payment = Payment.objects.select_for_update().get(
+                        booking=booking, razorpay_order_id=razorpay_order_id
+                    )
+                except Payment.DoesNotExist:
+                    logger.error(
+                        f"Payment not found for booking {booking.id}, "
+                        f"order_id={razorpay_order_id}"
+                    )
+                    return Response(
+                        {"error": "Payment record not found"},
+                        status=status.HTTP_404_NOT_FOUND,
+                    )
+
+                # Security Check 6: Payment not already processed
+                if payment.status == "SUCCESS":
+                    logger.warning(
+                        f"Payment {payment.id} already marked as SUCCESS, "
+                        f"possible duplicate request"
+                    )
+                    return Response(
+                        {
+                            "success": True,
+                            "message": "Payment already processed",
+                            "booking_status": booking.status,
+                            "booking_reference": booking.booking_reference,
+                        }
+                    )
+
+                # Security Check 7: Verify signature with Razorpay
+                razorpay_service = RazorpayService()
+                try:
+                    params_dict = {
+                        "razorpay_order_id": razorpay_order_id,
+                        "razorpay_payment_id": razorpay_payment_id,
+                        "razorpay_signature": razorpay_signature,
+                    }
+                    razorpay_service.client.utility.verify_payment_signature(
+                        params_dict
+                    )
+                    logger.info(
+                        f"✅ Payment signature verified for booking {booking.id}"
+                    )
+                except Exception as e:
+                    logger.error(
+                        f"❌ Payment signature verification FAILED "
+                        f"for booking {booking.id}: {str(e)}"
+                    )
+                    return Response(
+                        {
+                            "error": "Payment signature verification failed",
+                            "details": "Payment authenticity could not be verified",
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                # Security Check 8: Fetch payment details from Razorpay API
+                try:
+                    payment_details = razorpay_service.client.payment.fetch(
+                        razorpay_payment_id
+                    )
+                    logger.info(
+                        f"Fetched payment from Razorpay: "
+                        f"status={payment_details.get('status')}, "
+                        f"amount={payment_details.get('amount')}"
+                    )
+                except Exception as e:
+                    logger.error(
+                        f"❌ Failed to fetch payment from Razorpay API: {str(e)}"
+                    )
+                    return Response(
+                        {
+                            "error": "Failed to verify payment with Razorpay",
+                            "details": (
+                                "Could not fetch payment details "
+                                "from payment gateway"
+                            ),
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                # Security Check 9: Payment status is "captured" (money deducted)
+                payment_status = payment_details.get("status")
+                if payment_status != "captured":
+                    logger.error(
+                        f"❌ Payment {razorpay_payment_id} NOT CAPTURED! "
+                        f"Status: {payment_status}"
+                    )
+                    return Response(
+                        {
+                            "error": "Payment not captured",
+                            "payment_status": payment_status,
+                            "details": "Money has not been deducted yet",
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                logger.info(f"✅ Payment {razorpay_payment_id} is CAPTURED")
+
+                # Security Check 10: Amount matches exactly
+                payment_amount_paise = payment_details.get("amount", 0)
+                expected_amount_paise = int(payment.amount * 100)
+
+                if payment_amount_paise != expected_amount_paise:
+                    logger.error(
+                        f"❌ AMOUNT MISMATCH for booking {booking.id}! "
+                        f"Received: ₹{payment_amount_paise/100}, "
+                        f"Expected: ₹{expected_amount_paise/100}"
+                    )
+                    return Response(
+                        {
+                            "error": "Payment amount mismatch",
+                            "received_amount": payment_amount_paise / 100,
+                            "expected_amount": expected_amount_paise / 100,
+                            "details": "Payment amount does not match booking amount",
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                logger.info(
+                    f"✅ Amount verified: ₹{payment_amount_paise/100} matches expected"
+                )
+
+                # Security Check 11: Payment is not refunded
+                amount_refunded = payment_details.get("amount_refunded", 0)
+                if amount_refunded > 0:
+                    logger.error(
+                        f"❌ Payment {razorpay_payment_id} has been REFUNDED! "
+                        f"Refunded amount: ₹{amount_refunded/100}"
+                    )
+                    return Response(
+                        {
+                            "error": "Payment has been refunded",
+                            "details": (
+                                "This payment has been refunded " "and cannot be used"
+                            ),
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                # Security Check 12: Order ID matches
+                razorpay_order_id_from_payment = payment_details.get("order_id")
+                if razorpay_order_id_from_payment != razorpay_order_id:
+                    logger.error(
+                        f"❌ Order ID mismatch! "
+                        f"Payment has: {razorpay_order_id_from_payment}, "
+                        f"Expected: {razorpay_order_id}"
+                    )
+                    return Response(
+                        {"error": "Order ID mismatch"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                # ALL SECURITY CHECKS PASSED ✅
+                logger.info(f"✅ ALL SECURITY CHECKS PASSED for booking {booking.id}")
+
+                # Update payment record
+                payment.razorpay_payment_id = razorpay_payment_id
+                payment.status = "SUCCESS"
+                payment.save(update_fields=["razorpay_payment_id", "status"])
+
+                # Transition booking to CONFIRMED
+                success = BookingService.transition_status(booking, "CONFIRMED")
+
+                if not success:
+                    logger.error(
+                        f"❌ Failed to transition booking {booking.id} to CONFIRMED"
+                    )
+                    return Response(
+                        {"error": "Failed to confirm booking"},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    )
+
+                logger.info(
+                    f"✅✅✅ BOOKING CONFIRMED: "
+                    f"booking={booking.id}, "
+                    f"payment={razorpay_payment_id}, "
+                    f"reference={booking.booking_reference}, "
+                    f"amount=₹{payment_amount_paise/100}"
+                )
+
+                return Response(
+                    {
+                        "success": True,
+                        "message": "Payment verified and booking confirmed",
+                        "booking_status": booking.status,
+                        "booking_reference": booking.booking_reference,
+                    }
+                )
+
+        except Exception as e:
+            logger.error(
+                f"Payment verification error for booking {booking.id}: {str(e)}"
+            )
+            return Response(
+                {"error": f"Payment verification failed: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+    @extend_schema(
         operation_id="preview_booking",
         summary="Preview booking price",
         description=(
