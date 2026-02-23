@@ -1,3 +1,5 @@
+import dj_database_url
+
 from .base import *
 
 # SECURITY WARNING: don't run with debug turned on in production!
@@ -146,6 +148,8 @@ LOGGING = {
 SECURE_SSL_REDIRECT = False
 SESSION_COOKIE_SECURE = False
 CSRF_COOKIE_SECURE = False
+CSRF_COOKIE_SAMESITE = "Lax"  # Ensure proper CSRF cookie handling
+CSRF_COOKIE_HTTPONLY = False  # Allow JavaScript access for API calls
 
 # Django Admin settings
 ADMIN_URL = "admin/"

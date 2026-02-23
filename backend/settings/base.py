@@ -261,10 +261,24 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:5173",
     "http://localhost:7173",
+    "http://localhost:8000",  # Django admin
+    "http://127.0.0.1:8000",  # Django admin alternative
     "http://192.168.29.45:3000",
     "http://192.168.29.45:5173",
     "http://192.168.29.45:7173",
+    "http://192.168.29.45:8000",  # Django admin on network
 ]
+
+# CSRF Cookie Configuration
+CSRF_COOKIE_NAME = "csrftoken"
+CSRF_COOKIE_AGE = 31449600  # 1 year
+CSRF_COOKIE_DOMAIN = None  # Allow all domains in development
+CSRF_COOKIE_PATH = "/"
+CSRF_COOKIE_SAMESITE = "Lax"  # Allow same-site requests (required for admin)
+CSRF_COOKIE_HTTPONLY = False  # Must be False for JavaScript access
+CSRF_USE_SESSIONS = False  # Use cookies instead of sessions
+CSRF_HEADER_NAME = "HTTP_X_CSRFTOKEN"
+CSRF_TRUSTED_ORIGINS_REGEX = []
 
 # Rate limiting settings
 RATELIMIT_ENABLE = True

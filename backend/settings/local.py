@@ -29,6 +29,17 @@ CELERY_BROKER_URL = "memory://"
 CELERY_RESULT_BACKEND = "db+sqlite:///results.sqlite"
 CELERY_ALWAYS_EAGER = True
 
+# CSRF Configuration for local development
+CSRF_COOKIE_SECURE = False
+CSRF_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_HTTPONLY = False
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
 # Override logging to fix Windows permission issues with RotatingFileHandler
 LOGGING = {
     "version": 1,
