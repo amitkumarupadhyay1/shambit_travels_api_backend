@@ -74,6 +74,7 @@ class BookingSerializer(serializers.ModelSerializer):
             "selected_experiences",
             "selected_hotel_tier",
             "selected_transport",
+            "vehicle_allocation",
             "booking_date",
             "num_travelers",
             "traveler_details",

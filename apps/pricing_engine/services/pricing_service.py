@@ -124,22 +124,25 @@ class PricingService:
         end_date=None,
         num_rooms=1,
         num_travelers=1,
+        vehicle_allocation=None,
     ):
         """
         Calculates total price based on selected components and active rules.
         Logic is strictly backend-side and deterministic.
 
         PHASE 1 UPDATE: Now supports date-based hotel pricing.
+        VEHICLE OPTIMIZATION: Now supports vehicle_allocation override.
 
         Args:
             package: Package instance
             experiences: QuerySet or list of Experience instances
             hotel_tier: HotelTier instance
-            transport_option: TransportOption instance
+            transport_option: TransportOption instance (used if vehicle_allocation is None)
             travelers: Optional list of traveler dicts with 'age' field for age-based pricing
             start_date: Optional datetime.date for hotel pricing
             end_date: Optional datetime.date for hotel pricing
             num_rooms: Number of rooms required (default: 1)
+            vehicle_allocation: Optional list of {"transport_option_id": int, "count": int}
 
         Returns:
             Decimal: Total price (per-person if travelers not provided, total if provided)
@@ -155,6 +158,7 @@ class PricingService:
             end_date,
             num_rooms,
             num_travelers=num_travelers,
+            vehicle_allocation=vehicle_allocation,
         )
 
         return breakdown["final_total"]
@@ -170,27 +174,32 @@ class PricingService:
         end_date=None,
         num_rooms=1,
         num_travelers=1,  # PHASE 2: Simple traveler count for experience pricing
+        vehicle_allocation=None,  # VEHICLE OPTIMIZATION: Override transport pricing
     ):
         """
         Get detailed price breakdown for transparency.
 
         PHASE 1 UPDATE: Now includes date-based hotel pricing.
         PHASE 2 UPDATE: Now includes num_travelers for experience pricing.
+        VEHICLE OPTIMIZATION: Now supports vehicle_allocation override.
 
         Args:
             package: Package instance
             experiences: QuerySet or list of Experience instances
             hotel_tier: HotelTier instance
-            transport_option: TransportOption instance
+            transport_option: TransportOption instance (used if vehicle_allocation is None)
             travelers: Optional list of traveler dicts with 'age' field (for age-based pricing)
             start_date: Optional datetime.date for hotel pricing
             end_date: Optional datetime.date for hotel pricing
             num_rooms: Number of rooms required (default: 1)
             num_travelers: Number of travelers for experience pricing (default: 1)
+            vehicle_allocation: Optional list of {"transport_option_id": int, "count": int}
 
         Returns:
             dict: Detailed price breakdown including age-based calculations and hotel costs
         """
+        from math import ceil
+
         # 1. Base experiences price (PHASE 3: Use chargeable travelers for age-based pricing)
         base_experience_per_person = (
             sum(Decimal(str(exp.base_price)) for exp in experiences)
@@ -214,10 +223,49 @@ class PricingService:
             str(chargeable_travelers)
         )
 
-        # 2. Transport cost (optional - may be selected later)
-        transport_cost = (
-            transport_option.base_price if transport_option else Decimal("0.00")
-        )
+        # 2. Transport cost calculation (VEHICLE OPTIMIZATION)
+        if vehicle_allocation and len(vehicle_allocation) > 0:
+            # Use vehicle allocation pricing
+            from packages.models import TransportOption
+
+            num_days = 1
+            if start_date and end_date:
+                num_days = max(1, ceil((end_date - start_date).days))
+
+            transport_cost = Decimal("0.00")
+            vehicle_breakdown = []
+
+            for allocation in vehicle_allocation:
+                transport_id = allocation.get("transport_option_id")
+                count = allocation.get("count", 0)
+
+                if transport_id and count > 0:
+                    try:
+                        vehicle = TransportOption.objects.get(id=transport_id)
+                        price_per_day = vehicle.get_effective_price_per_day()
+                        vehicle_cost = price_per_day * count * num_days
+                        transport_cost += vehicle_cost
+
+                        vehicle_breakdown.append(
+                            {
+                                "transport_option_id": transport_id,
+                                "name": vehicle.name,
+                                "count": count,
+                                "price_per_day": str(price_per_day),
+                                "total_cost": str(vehicle_cost),
+                            }
+                        )
+                    except TransportOption.DoesNotExist:
+                        logger.warning(f"Transport option {transport_id} not found")
+
+            uses_vehicle_allocation = True
+        else:
+            # Legacy: Use single transport_option
+            transport_cost = (
+                transport_option.base_price if transport_option else Decimal("0.00")
+            )
+            vehicle_breakdown = []
+            uses_vehicle_allocation = False
 
         # 3. Hotel cost calculation (PHASE 1: New logic)
         hotel_cost_info = None
@@ -344,6 +392,10 @@ class PricingService:
                 Decimal("0.01")
             ),
             # End PHASE 2 additions
+            # VEHICLE OPTIMIZATION: Vehicle allocation fields
+            "uses_vehicle_allocation": uses_vehicle_allocation,
+            "vehicle_breakdown": vehicle_breakdown,
+            # End VEHICLE OPTIMIZATION additions
             "total_markup": total_markup.quantize(Decimal("0.01")),
             "total_discount": total_discount.quantize(Decimal("0.01")),
             "final_total": final_total,  # Total price for all chargeable travelers

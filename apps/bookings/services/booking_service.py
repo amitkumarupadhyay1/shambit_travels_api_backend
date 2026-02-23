@@ -14,6 +14,71 @@ logger = logging.getLogger(__name__)
 
 class BookingService:
     @staticmethod
+    def _validate_vehicle_allocation(vehicle_allocation, num_travelers, start_date, end_date):
+        """
+        Validate vehicle allocation structure and capacity.
+
+        Args:
+            vehicle_allocation: List of {"transport_option_id": int, "count": int}
+            num_travelers: Number of travelers
+            start_date: Trip start date
+            end_date: Trip end date
+
+        Raises:
+            ValueError: If validation fails
+        """
+        from math import ceil
+
+        if not isinstance(vehicle_allocation, list):
+            raise ValueError("vehicle_allocation must be a list")
+
+        if len(vehicle_allocation) == 0:
+            raise ValueError("vehicle_allocation cannot be empty")
+
+        seen_ids = set()
+        total_capacity = 0
+
+        for allocation in vehicle_allocation:
+            if not isinstance(allocation, dict):
+                raise ValueError("Each allocation must be a dictionary")
+
+            transport_id = allocation.get("transport_option_id")
+            count = allocation.get("count", 0)
+
+            if not transport_id:
+                raise ValueError("transport_option_id is required")
+
+            if count < 1:
+                raise ValueError(f"count must be at least 1 for transport_option_id {transport_id}")
+
+            if transport_id in seen_ids:
+                raise ValueError(f"Duplicate transport_option_id: {transport_id}")
+
+            seen_ids.add(transport_id)
+
+            # Validate transport option exists and is active
+            try:
+                transport = TransportOption.objects.get(id=transport_id)
+                if not transport.is_active:
+                    raise ValueError(f"Transport option {transport_id} is not active")
+
+                total_capacity += transport.passenger_capacity * count
+            except TransportOption.DoesNotExist:
+                raise ValueError(f"Transport option {transport_id} not found")
+
+        # Validate total capacity meets passenger count
+        if total_capacity < num_travelers:
+            raise ValueError(
+                f"Vehicle allocation capacity ({total_capacity}) is less than "
+                f"passenger count ({num_travelers})"
+            )
+
+        logger.info(
+            f"Vehicle allocation validated: {len(vehicle_allocation)} vehicle types, "
+            f"total capacity {total_capacity} for {num_travelers} passengers"
+        )
+
+    @staticmethod
     def get_canonical_amounts(booking, recalculated_total=None):
         """
         Resolve total/per-person amounts in a backward-compatible way.
@@ -115,12 +180,15 @@ class BookingService:
         num_rooms=1,
         room_allocation=None,
         room_preferences="",
+        # VEHICLE OPTIMIZATION: New parameter
+        vehicle_allocation=None,
     ):
         """
         BACKEND-AUTHORITATIVE: Calculate price and create booking.
         Frontend NEVER sends total_price.
 
         PHASE 1 UPDATE: Now supports date ranges and room allocation.
+        VEHICLE OPTIMIZATION: Now supports vehicle_allocation override.
 
         Args:
             traveler_details: List of dicts with 'name', 'age', 'gender' for each traveler
@@ -128,6 +196,7 @@ class BookingService:
             num_rooms: Number of rooms required (PHASE 1)
             room_allocation: Room allocation details (PHASE 1)
             room_preferences: User's room preferences (PHASE 1)
+            vehicle_allocation: Optional list of {"transport_option_id": int, "count": int}
         """
         from datetime import timedelta
 
@@ -148,12 +217,19 @@ class BookingService:
                         f"does not match num_travelers ({num_travelers})"
                     )
 
+            # VEHICLE OPTIMIZATION: Validate vehicle_allocation if provided
+            if vehicle_allocation:
+                BookingService._validate_vehicle_allocation(
+                    vehicle_allocation, num_travelers, booking_date, booking_end_date
+                )
+
             # PHASE 1: Set default end date if not provided
             if not booking_end_date:
                 booking_end_date = booking_date + timedelta(days=1)
 
             # Calculate total price on backend only (aggregate for all chargeable travelers)
             # PHASE 1: Pass date range and room count
+            # VEHICLE OPTIMIZATION: Pass vehicle_allocation
             calculated_price = PricingService.calculate_total(
                 package,
                 experiences,
@@ -164,6 +240,7 @@ class BookingService:
                 end_date=booking_end_date,
                 num_rooms=num_rooms,
                 num_travelers=num_travelers,
+                vehicle_allocation=vehicle_allocation,
             )
 
             # calculated_price is the TOTAL for all chargeable travelers.
@@ -190,6 +267,7 @@ class BookingService:
                 f"chargeable_age_threshold={age_threshold}, "
                 f"dates={booking_date} to {booking_end_date}, num_rooms={num_rooms}, "
                 f"hotel_cost={hotel_cost_info.get('total_cost')}, "
+                f"vehicle_allocation={vehicle_allocation}, "
                 f"traveler_ages={[t.get('age') for t in (traveler_details or [])]}, "
                 f"components: exp={len(experiences)}, hotel={hotel_tier.name}, transport={transport_option.name}"
             )
@@ -201,6 +279,7 @@ class BookingService:
                     package=package,
                     selected_hotel_tier=hotel_tier,
                     selected_transport=transport_option,
+                    vehicle_allocation=vehicle_allocation or [],
                     total_price=calculated_price,  # Aggregate total price
                     total_amount_paid=total_amount_paid,  # Total amount to be charged
                     status="DRAFT",
@@ -266,6 +345,7 @@ class BookingService:
                 end_date=booking.booking_end_date,
                 num_rooms=booking.num_rooms_required,
                 num_travelers=booking.num_travelers,
+                vehicle_allocation=booking.vehicle_allocation if booking.vehicle_allocation else None,
             )
 
             # Validate traveler count matches traveler details

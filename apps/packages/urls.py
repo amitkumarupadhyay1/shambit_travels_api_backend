@@ -8,6 +8,7 @@ from .views import (
     PackageViewSet,
     TransportOptionViewSet,
 )
+from .views_vehicle_suggestions import VehicleSuggestionsView
 
 # Main packages router
 router = DefaultRouter()
@@ -20,4 +21,5 @@ router.register(
 
 urlpatterns = [
     path("", include(router.urls)),
+    path("vehicle-suggestions/", VehicleSuggestionsView.as_view(), name="vehicle-suggestions"),
 ]

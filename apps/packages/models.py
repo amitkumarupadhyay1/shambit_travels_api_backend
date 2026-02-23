@@ -163,16 +163,55 @@ class HotelTier(models.Model):
 class TransportOption(models.Model):
     name = models.CharField(max_length=100, db_index=True)
     description = models.TextField()
-    base_price = models.DecimalField(max_digits=10, decimal_places=2, db_index=True)
+    base_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        db_index=True,
+        help_text="DEPRECATED: Use base_price_per_day instead. Kept for backward compatibility.",
+    )
+
+    # New fields for vehicle optimization
+    base_price_per_day = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="Base price per vehicle per day (24-hour period)",
+    )
+    passenger_capacity = models.IntegerField(
+        default=4,
+        help_text="Maximum passenger capacity per vehicle",
+    )
+    luggage_capacity = models.IntegerField(
+        default=3,
+        help_text="Maximum luggage pieces per vehicle",
+    )
+    is_active = models.BooleanField(
+        default=True,
+        db_index=True,
+        help_text="Whether this vehicle type is available for booking",
+    )
 
     class Meta:
         indexes = [
-            models.Index(fields=["base_price"]),  # Price filtering
+            models.Index(fields=["base_price"]),  # Price filtering (legacy)
+            models.Index(fields=["base_price_per_day"]),  # New price filtering
+            models.Index(fields=["is_active", "base_price_per_day"]),  # Active vehicles by price
         ]
         ordering = ["base_price"]
 
     def __str__(self):
         return self.name
+
+    def get_effective_price_per_day(self):
+        """Get the effective price per day, preferring new field over legacy"""
+        if self.base_price_per_day:
+            return self.base_price_per_day
+        # Fallback to legacy base_price
+        return self.base_price
+
+
 
 
 class Package(models.Model):

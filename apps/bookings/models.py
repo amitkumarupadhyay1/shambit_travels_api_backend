@@ -31,6 +31,13 @@ class Booking(models.Model):
         TransportOption, on_delete=models.PROTECT, db_index=True
     )
 
+    # Vehicle allocation for multi-vehicle optimization
+    vehicle_allocation = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='Optimized vehicle allocation: [{"transport_option_id": 1, "count": 2}]',
+    )
+
     # Booking details - PHASE 1: Updated date fields
     booking_date = models.DateField(
         db_index=True,
