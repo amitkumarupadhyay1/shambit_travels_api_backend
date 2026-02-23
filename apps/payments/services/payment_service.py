@@ -4,7 +4,6 @@ from decimal import Decimal
 from django.conf import settings
 
 import razorpay
-from bookings.models import Booking
 
 from ..models import Payment
 

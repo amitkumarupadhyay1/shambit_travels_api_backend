@@ -7,7 +7,7 @@ from django.contrib.auth import get_user_model
 
 from .models import Notification
 from .services.notification_service import NotificationService
-from .utils import notify_booking_update, notify_payment_update
+from .utils import notify_booking_update
 
 User = get_user_model()
 
@@ -70,7 +70,6 @@ def marketing_notifications_example():
     print(f"Sent marketing notification to {count} users")
 
     # Send to specific user segment (e.g., users with bookings)
-    from bookings.models import Booking
 
     users_with_bookings = User.objects.filter(booking__isnull=False).distinct()
 
@@ -87,7 +86,7 @@ def custom_notification_examples():
     """
     Examples of custom notification types
     """
-    user = User.objects.first()
+    User.objects.first()
 
     # Welcome series for new users
     def send_welcome_series(user):
@@ -124,7 +123,7 @@ def custom_notification_examples():
         from bookings.models import Booking
 
         # Find bookings starting in 7 days
-        upcoming_date = timezone.now().date() + timedelta(days=7)
+        upcoming_date = timezone.now().date() + timedelta(days=7)  # noqa: F841
         upcoming_bookings = Booking.objects.filter(
             status="CONFIRMED",
             # Assuming you have a start_date field

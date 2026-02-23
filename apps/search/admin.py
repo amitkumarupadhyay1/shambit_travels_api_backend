@@ -3,7 +3,7 @@ Admin configuration for search analytics
 """
 
 from django.contrib import admin
-from django.db.models import Avg, Count, Sum
+from django.db.models import Avg, Count
 from django.utils.html import format_html
 
 from .models import PopularSearch, SearchClick, SearchQuery

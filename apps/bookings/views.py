@@ -1,10 +1,12 @@
 import logging
+from decimal import Decimal
 
 from django.db import transaction
 from django.utils import timezone
 
 from drf_spectacular.utils import OpenApiExample, extend_schema, inline_serializer
 from payments.services.payment_service import RazorpayService
+from pricing_engine.services.pricing_service import PricingService
 from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -281,6 +283,7 @@ class BookingViewSet(viewsets.ModelViewSet):
             "pending payment status. Validates that the booking price has "
             "not changed."
         ),
+        request=None,
         responses={
             200: inline_serializer(
                 name="PaymentInitiationResponse",
@@ -384,6 +387,7 @@ class BookingViewSet(viewsets.ModelViewSet):
             "charged. Call this before initiating payment for final "
             "confirmation."
         ),
+        request=None,
         responses={
             200: inline_serializer(
                 name="PaymentValidationResponse",
@@ -427,13 +431,24 @@ class BookingViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Calculate exact amount (use stored or calculate)
-        if booking.total_amount_paid:
-            total_amount = booking.total_amount_paid
-        else:
-            total_amount = (
-                booking.total_price * booking.get_chargeable_travelers_count()
-            )
+        # Recalculate with booking context to derive canonical payable amount
+        recalculated = PricingService.get_price_breakdown(
+            booking.package,
+            booking.selected_experiences.all(),
+            booking.selected_hotel_tier,
+            booking.selected_transport,
+            booking.traveler_details if booking.traveler_details else None,
+            start_date=booking.booking_start_date or booking.booking_date,
+            end_date=booking.booking_end_date,
+            num_rooms=booking.num_rooms_required,
+            num_travelers=booking.num_travelers,
+        )
+        amounts = BookingService.get_canonical_amounts(
+            booking, recalculated_total=recalculated["final_total"]
+        )
+        total_amount = amounts["total_amount"]
+        per_person_price = amounts["per_person_amount"]
+        chargeable_travelers = amounts["chargeable_travelers"]
 
         amount_in_paise = int(total_amount * 100)
 
@@ -445,8 +460,8 @@ class BookingViewSet(viewsets.ModelViewSet):
         return Response(
             {
                 "booking_id": booking.id,
-                "per_person_price": str(booking.total_price),
-                "chargeable_travelers": booking.get_chargeable_travelers_count(),
+                "per_person_price": str(per_person_price),
+                "chargeable_travelers": chargeable_travelers,
                 "total_amount": str(total_amount),
                 "amount_in_paise": amount_in_paise,
                 "currency": "INR",
@@ -782,6 +797,7 @@ class BookingViewSet(viewsets.ModelViewSet):
                     "total_amount": serializers.DecimalField(
                         max_digits=12, decimal_places=2
                     ),
+                    "chargeable_age_threshold": serializers.IntegerField(),
                     "price_breakdown": serializers.DictField(),
                 },
             ),
@@ -837,15 +853,21 @@ class BookingViewSet(viewsets.ModelViewSet):
             start_date=start_date,
             end_date=end_date,
             num_rooms=num_rooms,
+            num_travelers=data["num_travelers"],
         )
 
-        # Get per-person price (final_total from breakdown)
-        per_person_price = breakdown["final_total"]
-
-        # Get total amount and chargeable travelers from breakdown
+        # Canonical amount fields from backend breakdown
         num_travelers = data["num_travelers"]
         chargeable_count = breakdown.get("chargeable_travelers", num_travelers)
-        total_amount = breakdown.get("total_amount", per_person_price * num_travelers)
+        total_amount = Decimal(
+            str(breakdown.get("total_amount", breakdown["final_total"]))
+        )
+        if chargeable_count > 0:
+            per_person_price = (total_amount / Decimal(str(chargeable_count))).quantize(
+                Decimal("0.01")
+            )
+        else:
+            per_person_price = total_amount
 
         logger.info(
             f"Preview calculated: per_person={per_person_price}, "
@@ -861,10 +883,17 @@ class BookingViewSet(viewsets.ModelViewSet):
                 "chargeable_travelers": chargeable_count,
                 "total_amount": str(total_amount),
                 "chargeable_age_threshold": breakdown.get(
-                    "chargeable_age_threshold", 5
+                    "chargeable_age_threshold",
+                    PricingService.get_chargeable_age_threshold(),
                 ),
                 "price_breakdown": {
                     "base_experience_total": str(breakdown["base_experience_total"]),
+                    "base_experience_per_person": str(
+                        breakdown.get(
+                            "base_experience_per_person",
+                            breakdown["base_experience_total"],
+                        )
+                    ),
                     "transport_cost": str(breakdown["transport_cost"]),
                     "subtotal_before_hotel": str(breakdown["subtotal_before_hotel"]),
                     "hotel_multiplier": str(breakdown["hotel_multiplier"]),
@@ -993,7 +1022,7 @@ class BookingViewSet(viewsets.ModelViewSet):
         # Validate input
         hotel_tier_id = request.data.get("hotel_tier_id")
         traveler_details = request.data.get("traveler_details", [])
-        preference = request.data.get("preference", "auto")
+        request.data.get("preference", "auto")
 
         if not hotel_tier_id:
             return Response(

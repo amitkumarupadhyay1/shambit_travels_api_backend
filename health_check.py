@@ -4,7 +4,6 @@ Simple health check script for debugging Railway deployment issues
 """
 
 import os
-import sys
 
 import django
 from django.conf import settings
@@ -35,7 +34,7 @@ def check_health():
 
     # Check static files
     try:
-        from django.contrib.staticfiles.storage import staticfiles_storage
+        pass
 
         print(f"✓ Static files root: {settings.STATIC_ROOT}")
         print(f"✓ Static files URL: {settings.STATIC_URL}")

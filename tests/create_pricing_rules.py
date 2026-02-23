@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 import os
-import sys
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import django
 
@@ -109,7 +108,6 @@ def create_pricing_rules():
     print("=" * 50)
 
     if mumbai_package:
-        from packages.models import Experience, HotelTier, TransportOption
         from pricing_engine.services.pricing_service import PricingService
 
         # Get sample components

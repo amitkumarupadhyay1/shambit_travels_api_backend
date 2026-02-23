@@ -4,12 +4,10 @@ from datetime import timedelta
 
 from django.contrib.contenttypes.models import ContentType
 from django.core.paginator import Paginator
-from django.db.models import Count, Q, Sum
+from django.db.models import Q
 from django.http import Http404, HttpResponse
-from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
-from PIL import Image
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
@@ -388,7 +386,7 @@ class MediaViewSet(viewsets.ModelViewSet):
                 # Try to access the content object
                 if not media.content_object:
                     orphaned_media.append(media)
-            except:
+            except:  # noqa: E722
                 orphaned_media.append(media)
 
         serializer = MediaListSerializer(

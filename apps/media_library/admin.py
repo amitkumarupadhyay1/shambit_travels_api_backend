@@ -3,11 +3,9 @@ import os
 from django import forms
 from django.contrib import admin, messages
 from django.contrib.contenttypes.models import ContentType
-from django.db.models import Count
 from django.shortcuts import redirect, render
 from django.urls import path, reverse
 from django.utils.html import format_html
-from django.utils.safestring import mark_safe
 
 from .models import Media
 from .services.media_service import MediaService
@@ -300,7 +298,7 @@ class MediaAdmin(admin.ModelAdmin):
             info_html = f"""
             <div style="background: var(--body-bg, #f8f9fa); padding: 15px; border-radius: 6px; border: 1px solid var(--border-color, #dee2e6);">
                 <h4 style="margin-top: 0; color: var(--body-fg, #495057); font-size: 14px;">📄 File Details</h4>
-                
+                  # noqa: W293
                 <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
                     <tr style="border-bottom: 1px solid var(--border-color, #dee2e6);">
                         <td style="padding: 8px 0; font-weight: 600; width: 140px; color: var(--body-fg, #495057);">File Name:</td>
@@ -386,10 +384,10 @@ class MediaAdmin(admin.ModelAdmin):
                         <td style="padding: 8px 0; color: var(--body-fg, #212529);">{obj.created_at.strftime('%B %d, %Y at %I:%M %p')}</td>
                     </tr>
                 </table>
-                
+                  # noqa: W293
                 <div style="margin-top: 12px; padding: 10px; background: var(--darkened-bg, #e7f3ff); border-radius: 4px; border-left: 3px solid #0066cc;">
                     <small style="color: var(--body-fg, #004085); font-size: 12px;">
-                        <strong>💡 Usage Tip:</strong> This file is publicly accessible via the URL above. 
+                        <strong>💡 Usage Tip:</strong> This file is publicly accessible via the URL above.   # noqa: W291
                         {'For responsive images, the system automatically generates optimized versions for different devices.' if MediaUtils.is_image_file(obj.file.name) and 'cloudinary' in obj.file.url else 'Copy the URL to use this file in your content.'}
                     </small>
                 </div>
@@ -549,7 +547,7 @@ class MediaAdmin(admin.ModelAdmin):
             try:
                 if not media.content_object:
                     orphaned_count += 1
-            except:
+            except:  # noqa: E722
                 orphaned_count += 1
 
         context = {

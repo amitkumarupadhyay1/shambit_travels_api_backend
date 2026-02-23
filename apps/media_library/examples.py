@@ -3,9 +3,6 @@ Integration examples for the media library system
 These examples show how to integrate media with existing models
 """
 
-from django.contrib.contenttypes.models import ContentType
-from django.core.files.uploadedfile import SimpleUploadedFile
-
 from .services.media_service import MediaService
 from .utils import MediaProcessor, MediaUtils, MediaValidator
 
@@ -214,7 +211,7 @@ def media_search_example():
             from cities.models import City
 
             try:
-                city = City.objects.get(name__icontains=city_name)
+                city = City.objects.get(name__icontains=city_name)  # noqa: F841
                 search_params["content_type"] = "cities.city"
                 # Note: This would need to be extended to search by object_id
             except City.DoesNotExist:
@@ -363,7 +360,7 @@ def media_maintenance_example():
             try:
                 if not media.content_object:
                     orphaned_media.append(media)
-            except:
+            except:  # noqa: E722
                 orphaned_media.append(media)
 
         deleted_count = 0
@@ -373,7 +370,7 @@ def media_maintenance_example():
                     media.file.delete()
                 media.delete()
                 deleted_count += 1
-            except:
+            except:  # noqa: E722
                 pass
 
         print(f"Cleaned up {deleted_count} orphaned media files")
@@ -401,18 +398,18 @@ def media_maintenance_example():
         report = f"""
         Weekly Media Storage Report
         ==========================
-        
+          # noqa: W293
         Total Files: {stats['total_files']}
         Total Size: {MediaUtils.format_file_size(stats['total_size'])}
-        
+          # noqa: W293
         File Types:
         - Images: {stats['by_type']['images']}
         - Videos: {stats['by_type']['videos']}
         - Documents: {stats['by_type']['documents']}
         - Other: {stats['by_type']['other']}
-        
+          # noqa: W293
         Recent Uploads (7 days): {stats['recent_uploads']}
-        
+          # noqa: W293
         Storage Usage:
         - Files in Storage: {storage_info.get('total_files', 'N/A')}
         - Storage Size: {MediaUtils.format_file_size(storage_info.get('total_size', 0))}

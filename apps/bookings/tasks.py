@@ -33,3 +33,36 @@ def expire_draft_bookings():
     except Exception as e:
         logger.error(f"Booking expiry task failed: {str(e)}")
         raise
+
+
+@shared_task(name="bookings.cleanup_expired_drafts")
+def cleanup_expired_drafts():
+    """
+    PHASE 4: Celery task to cleanup expired booking drafts.
+
+    Deletes all drafts that have passed their 24h TTL.
+
+    Schedule this task to run every hour:
+
+    # In celery.py or settings.py:
+    CELERY_BEAT_SCHEDULE = {
+        'cleanup-expired-drafts': {
+            'task': 'bookings.cleanup_expired_drafts',
+            'schedule': crontab(minute=0),  # Every hour
+        },
+    }
+    """
+    try:
+        from .models_draft import BookingDraft
+
+        logger.info("Starting draft cleanup task")
+        expired_count = BookingDraft.cleanup_expired()
+        logger.info(f"Draft cleanup completed: {expired_count} expired drafts deleted")
+
+        return {
+            "success": True,
+            "deleted_count": expired_count,
+        }
+    except Exception as e:
+        logger.error(f"Draft cleanup task failed: {str(e)}")
+        raise

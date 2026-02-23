@@ -396,7 +396,7 @@ class RoomRecommendationService:
                     "num_rooms": num_travelers,
                     "type": "privacy",
                     "priority": 5,
-                    "reasoning": f"1 room per person for maximum privacy",
+                    "reasoning": "1 room per person for maximum privacy",
                     "description": f"{num_travelers} room(s) - Maximum privacy (1 per room)",
                     "cost_per_night": single_price * num_travelers,
                     "allocation": privacy_allocation,

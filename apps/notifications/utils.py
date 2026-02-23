@@ -60,7 +60,6 @@ class NotificationUtils:
         #         }
         #     }
         # )
-        pass
 
     @staticmethod
     def format_notification_data(notification: Notification) -> Dict[str, Any]:

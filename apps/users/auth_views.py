@@ -1,6 +1,5 @@
 import logging
 
-from django.contrib.auth import authenticate, get_user_model
 from django.db import transaction
 
 from drf_spectacular.utils import OpenApiExample, extend_schema, inline_serializer
@@ -10,7 +9,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .models import User
 from .serializers import (
@@ -24,7 +23,6 @@ from .serializers import (
     UserRegistrationSerializer,
     UserSerializer,
 )
-from .services.email_service import EmailService
 from .services.otp_service import OTPService
 
 logger = logging.getLogger(__name__)
@@ -187,7 +185,7 @@ class ForgotPasswordView(APIView):
         if serializer.is_valid():
             phone = serializer.validated_data["phone"]
             try:
-                user = User.objects.get(phone=phone)
+                user = User.objects.get(phone=phone)  # noqa: F841
                 otp = OTPService.generate_otp()
                 OTPService.store_otp(phone, otp, purpose="reset_password")
 

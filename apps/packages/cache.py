@@ -6,7 +6,7 @@ Provides decorators and functions for caching API responses
 import hashlib
 import logging
 from functools import wraps
-from typing import Any, Callable, Optional
+from typing import Callable, Optional
 
 from django.conf import settings
 from django.core.cache import cache
@@ -133,7 +133,7 @@ def invalidate_cache(pattern: str) -> int:
             # Fallback: clear entire cache
             cache.clear()
             logger.warning(
-                f"Cache backend doesn't support patterns, cleared entire cache"
+                "Cache backend doesn't support patterns, cleared entire cache"
             )
             return 0
     except Exception as e:

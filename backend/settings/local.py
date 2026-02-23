@@ -1,7 +1,3 @@
-import dj_database_url
-
-from .development import *
-
 # Use Neon DB
 # postgresql://neondb_owner:npg_VyDnfoCEu46z@ep-solitary-cell-ahfvkw6i-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
 DATABASES = {

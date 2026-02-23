@@ -1,9 +1,8 @@
 import mimetypes
 import os
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional
 
 from django.conf import settings
-from django.core.files.uploadedfile import InMemoryUploadedFile, TemporaryUploadedFile
 
 from PIL import Image, ImageOps
 

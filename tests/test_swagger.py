@@ -4,15 +4,11 @@ Test script for Swagger API documentation implementation.
 Tests schema generation, endpoint accessibility, and security.
 """
 
-import json
 import os
-import sys
 
 import django
-from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import Client
-from django.urls import reverse
 
 # Setup Django
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "backend.settings.development")

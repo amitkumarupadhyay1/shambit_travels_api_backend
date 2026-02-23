@@ -149,3 +149,35 @@ CSRF_COOKIE_SECURE = False
 
 # Django Admin settings
 ADMIN_URL = "admin/"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Celery Configuration (PHASE 4: Draft Persistence)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Celery broker settings
+CELERY_BROKER_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+CELERY_RESULT_BACKEND = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+
+# Celery task settings
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TIMEZONE = "UTC"
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
+
+# Celery Beat Schedule (Periodic Tasks)
+from celery.schedules import crontab  # noqa: E402
+
+CELERY_BEAT_SCHEDULE = {
+    "expire-draft-bookings": {
+        "task": "apps.bookings.tasks.expire_draft_bookings",
+        "schedule": crontab(minute="*/5"),  # Every 5 minutes
+        "options": {"expires": 240},  # Task expires after 4 minutes
+    },
+    "cleanup-expired-drafts": {
+        "task": "apps.bookings.tasks.cleanup_expired_drafts",
+        "schedule": crontab(minute=0),  # Every hour
+        "options": {"expires": 3300},  # Task expires after 55 minutes
+    },
+}

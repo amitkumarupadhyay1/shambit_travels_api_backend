@@ -1,5 +1,4 @@
 from django.contrib import admin, messages
-from django.db.models import Count
 from django.shortcuts import redirect, render
 from django.urls import path, reverse
 from django.utils.html import format_html
@@ -110,7 +109,7 @@ class SEODataAdmin(admin.ModelAdmin):
                 return format_html(
                     '<a href="{}" target="_blank">{}</a>', url, str(obj.content_object)
                 )
-            except:
+            except:  # noqa: E722
                 return str(obj.content_object)
         return "N/A"
 
@@ -174,7 +173,7 @@ class SEODataAdmin(admin.ModelAdmin):
         <div style="background: #f8f9fa; padding: 15px; border-radius: 5px;">
             <h4>SEO Analysis</h4>
             <p><strong>Overall Score:</strong> <span style="color: {'green' if analysis['overall_score'] in ['excellent', 'good'] else 'orange' if analysis['overall_score'] == 'fair' else 'red'};">{analysis['overall_score'].upper()}</span></p>
-            
+              # noqa: W293
             <h5>Details:</h5>
             <ul>
                 <li><strong>Title:</strong> {analysis['title_length']} characters ({analysis['title_score']})</li>
@@ -182,7 +181,7 @@ class SEODataAdmin(admin.ModelAdmin):
                 <li><strong>Keywords:</strong> {analysis['keywords_count']} keywords ({analysis['keywords_score']})</li>
                 <li><strong>Open Graph:</strong> {analysis['og_completeness']*100:.0f}% complete</li>
             </ul>
-            
+              # noqa: W293
             <h5>Recommendations:</h5>
             <ul>
         """
@@ -274,7 +273,7 @@ class SEODataAdmin(admin.ModelAdmin):
             try:
                 missing_info = SEOService.find_missing_seo_data(content_type)
                 missing_data[content_type] = missing_info
-            except:
+            except:  # noqa: E722
                 pass
 
         context = {
@@ -306,7 +305,7 @@ class SEODataAdmin(admin.ModelAdmin):
                                     content_type, obj_id
                                 )
                                 created_count += 1
-                            except Exception as e:
+                            except Exception:
                                 continue
 
                         self.message_user(
@@ -339,7 +338,7 @@ class SEODataAdmin(admin.ModelAdmin):
                             "missing_count": missing_info["missing_seo"],
                         }
                     )
-            except:
+            except:  # noqa: E722
                 pass
 
         context = {

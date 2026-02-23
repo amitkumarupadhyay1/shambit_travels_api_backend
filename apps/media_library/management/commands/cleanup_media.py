@@ -39,7 +39,7 @@ class Command(BaseCommand):
                     try:
                         if not media.content_object:
                             orphaned_count += 1
-                    except:
+                    except:  # noqa: E722
                         orphaned_count += 1
 
                 self.stdout.write(

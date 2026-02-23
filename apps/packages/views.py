@@ -2,7 +2,6 @@ import logging
 
 from django.shortcuts import get_object_or_404
 from django.utils.decorators import method_decorator
-from django.views.decorators.cache import cache_page
 
 import bleach
 from django_ratelimit.decorators import ratelimit
@@ -18,12 +17,11 @@ from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import (
     AllowAny,
-    IsAuthenticated,
     IsAuthenticatedOrReadOnly,
 )
 from rest_framework.response import Response
 
-from .cache import cache_response, invalidate_experience_cache, invalidate_package_cache
+from .cache import cache_response
 from .logging import AuditLogger, get_client_ip
 from .models import Experience, HotelTier, Package, TransportOption
 from .serializers import (
@@ -244,7 +242,32 @@ class PackageViewSet(viewsets.ModelViewSet):
                     help_text="Selected hotel tier ID"
                 ),
                 "transport_option_id": serializers.IntegerField(
-                    help_text="Selected transport option ID"
+                    help_text="Selected transport option ID",
+                    required=False,
+                    allow_null=True,
+                ),
+                "start_date": serializers.DateField(
+                    required=False, help_text="Trip start date (YYYY-MM-DD)"
+                ),
+                "end_date": serializers.DateField(
+                    required=False, help_text="Trip end date (YYYY-MM-DD)"
+                ),
+                "num_rooms": serializers.IntegerField(
+                    required=False, min_value=1, help_text="Number of rooms"
+                ),
+                "num_travelers": serializers.IntegerField(
+                    required=False, min_value=1, help_text="Number of travelers"
+                ),
+                "travelers": serializers.ListField(
+                    required=False,
+                    child=inline_serializer(
+                        name="PriceCalculationTraveler",
+                        fields={
+                            "name": serializers.CharField(),
+                            "age": serializers.IntegerField(),
+                            "gender": serializers.CharField(required=False),
+                        },
+                    ),
                 ),
             },
         ),
@@ -257,6 +280,11 @@ class PackageViewSet(viewsets.ModelViewSet):
                     "breakdown": inline_serializer(
                         name="PriceBreakdown",
                         fields={
+                            "base_experience_total": serializers.CharField(
+                                required=False
+                            ),
+                            "transport_cost": serializers.CharField(required=False),
+                            "hotel_multiplier": serializers.CharField(required=False),
                             "experiences": serializers.ListField(
                                 child=inline_serializer(
                                     name="ExperiencePrice",
@@ -273,6 +301,9 @@ class PackageViewSet(viewsets.ModelViewSet):
                                     "id": serializers.IntegerField(),
                                     "name": serializers.CharField(),
                                     "price_multiplier": serializers.CharField(),
+                                    "base_price_per_night": serializers.CharField(
+                                        required=False, allow_null=True
+                                    ),
                                 },
                             ),
                             "transport": inline_serializer(
@@ -282,7 +313,54 @@ class PackageViewSet(viewsets.ModelViewSet):
                                     "name": serializers.CharField(),
                                     "price": serializers.CharField(),
                                 },
+                                allow_null=True,
                             ),
+                            "subtotal_before_hotel": serializers.CharField(
+                                required=False
+                            ),
+                            "subtotal_after_hotel": serializers.CharField(
+                                required=False
+                            ),
+                            "hotel_cost": serializers.CharField(
+                                required=False, allow_null=True
+                            ),
+                            "hotel_cost_per_night": serializers.CharField(
+                                required=False, allow_null=True
+                            ),
+                            "hotel_num_nights": serializers.IntegerField(
+                                required=False
+                            ),
+                            "hotel_num_rooms": serializers.IntegerField(required=False),
+                            "uses_new_hotel_pricing": serializers.BooleanField(
+                                required=False
+                            ),
+                            "num_travelers": serializers.IntegerField(required=False),
+                            "base_experience_per_person": serializers.CharField(
+                                required=False
+                            ),
+                            "per_person_price": serializers.CharField(required=False),
+                            "total_amount": serializers.CharField(required=False),
+                            "chargeable_travelers": serializers.IntegerField(
+                                required=False
+                            ),
+                            "chargeable_age_threshold": serializers.IntegerField(
+                                required=False
+                            ),
+                            "applied_rules": serializers.ListField(
+                                required=False,
+                                child=inline_serializer(
+                                    name="AppliedPriceRule",
+                                    fields={
+                                        "name": serializers.CharField(),
+                                        "type": serializers.CharField(),
+                                        "value": serializers.CharField(),
+                                        "is_percentage": serializers.BooleanField(),
+                                        "amount_applied": serializers.CharField(),
+                                    },
+                                ),
+                            ),
+                            "total_markup": serializers.CharField(required=False),
+                            "total_discount": serializers.CharField(required=False),
                         },
                     ),
                     "pricing_note": serializers.CharField(),
@@ -308,36 +386,63 @@ class PackageViewSet(viewsets.ModelViewSet):
                     "experience_ids": [1, 3, 5],
                     "hotel_tier_id": 2,
                     "transport_option_id": 1,
+                    "start_date": "2026-03-10",
+                    "end_date": "2026-03-12",
+                    "num_rooms": 2,
+                    "num_travelers": 3,
                 },
                 request_only=True,
             ),
             OpenApiExample(
                 "Successful price calculation",
                 value={
-                    "total_price": "28500.00",
+                    "total_price": "12543.08",
                     "currency": "INR",
                     "breakdown": {
+                        "base_experience_total": "2600.00",
+                        "transport_cost": "3000.00",
+                        "hotel_multiplier": "2.5",
                         "experiences": [
                             {
                                 "id": 1,
                                 "name": "Gateway of India Tour",
-                                "price": "2500.00",
+                                "price": "800.00",
                             },
-                            {"id": 3, "name": "Marine Drive Walk", "price": "1500.00"},
-                            {
-                                "id": 5,
-                                "name": "Bollywood Studio Visit",
-                                "price": "4000.00",
-                            },
+                            {"id": 3, "name": "Marine Drive Walk", "price": "500.00"},
                         ],
                         "hotel_tier": {
                             "id": 2,
                             "name": "4-Star Hotels",
                             "price_multiplier": "2.5",
+                            "base_price_per_night": "2000.00",
                         },
                         "transport": {"id": 1, "name": "AC Cab", "price": "3000.00"},
+                        "subtotal_before_hotel": "2600.00",
+                        "subtotal_after_hotel": "10800.00",
+                        "hotel_cost": "8000.00",
+                        "hotel_cost_per_night": "4000.00",
+                        "hotel_num_nights": 2,
+                        "hotel_num_rooms": 2,
+                        "uses_new_hotel_pricing": True,
+                        "num_travelers": 3,
+                        "base_experience_per_person": "1300.00",
+                        "per_person_price": "6271.54",
+                        "total_amount": "12543.08",
+                        "chargeable_travelers": 2,
+                        "chargeable_age_threshold": 5,
+                        "applied_rules": [
+                            {
+                                "name": "GST (18%)",
+                                "type": "MARKUP",
+                                "value": "18.00",
+                                "is_percentage": True,
+                                "amount_applied": "1837.08",
+                            }
+                        ],
+                        "total_markup": "2877.08",
+                        "total_discount": "1134.00",
                     },
-                    "pricing_note": "This is an estimate. Final price calculated at checkout.",
+                    "pricing_note": "Price includes all applicable taxes and charges. No hidden fees.",
                 },
                 response_only=True,
                 status_codes=["200"],
@@ -416,10 +521,16 @@ class PackageViewSet(viewsets.ModelViewSet):
             hotel_tier_id = data.get("hotel_tier_id")
             transport_option_id = data.get("transport_option_id")
 
-            # PHASE 2: Optional date range and room count for accurate hotel pricing
+            # PHASE 2: Optional date range, room count, and traveler count for accurate pricing
             start_date_str = data.get("start_date")
             end_date_str = data.get("end_date")
             num_rooms = data.get("num_rooms", 1)
+            num_travelers = data.get(
+                "num_travelers", 1
+            )  # PHASE 2: Traveler count for experience pricing
+            travelers = data.get(
+                "travelers"
+            )  # PHASE 3: Traveler details with age for age-based pricing
 
             # Validation 1: Check experience_ids is a list
             if not isinstance(experience_ids, list):
@@ -510,20 +621,19 @@ class PackageViewSet(viewsets.ModelViewSet):
                     {"error": "hotel_tier_id is required"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            if transport_option_id is None:
-                return Response(
-                    {"error": "transport_option_id is required"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
             # Get components
             experiences = Experience.objects.filter(
                 id__in=experience_ids, is_active=True
             )
             hotel_tier = get_object_or_404(HotelTier, id=hotel_tier_id)
-            transport_option = get_object_or_404(
-                TransportOption, id=transport_option_id
-            )
+
+            # Transport is optional - will be selected on review page
+            if transport_option_id is None:
+                transport_option = None
+            else:
+                transport_option = get_object_or_404(
+                    TransportOption, id=transport_option_id
+                )
 
             # Validation 6: Validate all experiences found and active
             if len(experiences) != len(experience_ids):
@@ -574,9 +684,11 @@ class PackageViewSet(viewsets.ModelViewSet):
                 experiences,
                 hotel_tier,
                 transport_option,
+                travelers=travelers,  # PHASE 3: Pass traveler details for age-based pricing
                 start_date=start_date,
                 end_date=end_date,
                 num_rooms=num_rooms,
+                num_travelers=num_travelers,  # PHASE 2: Pass traveler count
             )
 
             total_price = breakdown["final_total"]
@@ -620,11 +732,20 @@ class PackageViewSet(viewsets.ModelViewSet):
                                 else None
                             ),
                         },
-                        "transport": {
-                            "id": transport_option.id,
-                            "name": transport_option.name,
-                            "price": str(transport_option.base_price),
-                        },
+                        "transport": (
+                            {
+                                "id": transport_option.id,
+                                "name": transport_option.name,
+                                "price": str(transport_option.base_price),
+                            }
+                            if transport_option
+                            else None
+                        ),
+                        "base_experience_total": str(
+                            breakdown["base_experience_total"]
+                        ),
+                        "transport_cost": str(breakdown["transport_cost"]),
+                        "hotel_multiplier": str(breakdown["hotel_multiplier"]),
                         # NEW: Detailed pricing breakdown including taxes
                         "subtotal_before_hotel": str(
                             breakdown["subtotal_before_hotel"]
@@ -645,6 +766,25 @@ class PackageViewSet(viewsets.ModelViewSet):
                         "hotel_num_rooms": breakdown.get("hotel_num_rooms", 1),
                         "uses_new_hotel_pricing": breakdown.get(
                             "uses_new_hotel_pricing", False
+                        ),
+                        # PHASE 2: Traveler count
+                        "num_travelers": breakdown.get("num_travelers", 1),
+                        "base_experience_per_person": str(
+                            breakdown.get("base_experience_per_person", "0.00")
+                        ),
+                        "per_person_price": str(
+                            breakdown.get("per_person_price", "0.00")
+                        ),
+                        "total_amount": str(
+                            breakdown.get("total_amount", breakdown["final_total"])
+                        ),
+                        # PHASE 3: Age-based pricing
+                        "chargeable_travelers": breakdown.get(
+                            "chargeable_travelers", breakdown.get("num_travelers", 1)
+                        ),
+                        "chargeable_age_threshold": breakdown.get(
+                            "chargeable_age_threshold",
+                            PricingService.get_chargeable_age_threshold(),
                         ),
                         # End PHASE 2
                         "applied_rules": breakdown["applied_rules"],
@@ -669,7 +809,6 @@ class PackageViewSet(viewsets.ModelViewSet):
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-@extend_schema(tags=["Packages"])
 class ExperienceViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = ExperienceSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
@@ -715,7 +854,7 @@ class ExperienceViewSet(viewsets.ReadOnlyModelViewSet):
         summary="List all experiences",
         description="""
         Retrieve a paginated list of active travel experiences.
-        
+          # noqa: W293
         **Filtering:**
         - `city`: Filter by city ID
         - `category`: Filter by category (CULTURAL, ADVENTURE, FOOD, SPIRITUAL, NATURE, ENTERTAINMENT, EDUCATIONAL)
@@ -723,11 +862,11 @@ class ExperienceViewSet(viewsets.ReadOnlyModelViewSet):
         - `min_price`: Minimum price filter
         - `max_price`: Maximum price filter
         - `search`: Search in name and description
-        
+          # noqa: W293
         **Sorting:**
         - `ordering`: Sort by field (name, base_price, created_at, duration_hours)
         - Prefix with `-` for descending order (e.g., `-base_price`)
-        
+          # noqa: W293
         **Caching:** Responses cached for 5 minutes
         """,
         parameters=[

@@ -1,7 +1,6 @@
 from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
-from django.utils import timezone
 
 
 class PricingRule(models.Model):
@@ -107,6 +106,44 @@ class PricingConfiguration(models.Model):
         default=365,
         validators=[MinValueValidator(1), MaxValueValidator(730)],
         help_text="Maximum days in advance for booking (default: 365 days)",
+    )
+
+    # PHASE 3: Tax and Fee Configuration
+    gst_rate = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=18.00,
+        validators=[MinValueValidator(0.0), MaxValueValidator(100.0)],
+        help_text="GST rate in percentage (default: 18%)",
+    )
+
+    platform_fee_rate = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=2.00,
+        validators=[MinValueValidator(0.0), MaxValueValidator(100.0)],
+        help_text="Platform fee rate in percentage (default: 2%)",
+    )
+
+    # PHASE 3: Price Lock Configuration
+    price_lock_duration_minutes = models.IntegerField(
+        default=15,
+        validators=[MinValueValidator(5), MaxValueValidator(60)],
+        help_text="Duration in minutes to lock price for booking (default: 15 minutes)",
+    )
+
+    # PHASE 3: Price Change Detection
+    price_change_alert_threshold = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=5.00,
+        validators=[MinValueValidator(0.0), MaxValueValidator(100.0)],
+        help_text="Alert threshold for price changes in percentage (default: 5%)",
+    )
+
+    enable_price_change_alerts = models.BooleanField(
+        default=True,
+        help_text="Enable admin alerts for significant price changes",
     )
 
     # Metadata

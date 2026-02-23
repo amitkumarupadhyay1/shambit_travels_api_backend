@@ -3,10 +3,6 @@ Cloudinary Free Tier Optimization Middleware
 Ensures we stay within Cloudinary free tier limits
 """
 
-import os
-
-from django.conf import settings
-
 
 class CloudinaryOptimizationMiddleware:
     """

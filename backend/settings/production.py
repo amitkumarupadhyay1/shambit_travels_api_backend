@@ -236,3 +236,31 @@ LOGGING = {
 
 # Django Admin settings for production
 ADMIN_URL = "admin/"
+
+# ============================================================================
+# CELERY CONFIGURATION (PHASE 4)
+# ============================================================================
+
+# Celery settings for production
+CELERY_BROKER_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+CELERY_RESULT_BACKEND = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+
+# Celery Beat Schedule
+from celery.schedules import crontab  # noqa: E402
+
+CELERY_BEAT_SCHEDULE = {
+    # Expire draft bookings every 5 minutes
+    "expire-draft-bookings": {
+        "task": "bookings.expire_draft_bookings",
+        "schedule": crontab(minute="*/5"),  # Every 5 minutes
+    },
+    # Cleanup expired drafts every hour (PHASE 4)
+    "cleanup-expired-drafts": {
+        "task": "bookings.cleanup_expired_drafts",
+        "schedule": crontab(minute=0),  # Every hour
+    },
+}

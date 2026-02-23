@@ -14,6 +14,52 @@ logger = logging.getLogger(__name__)
 
 class BookingService:
     @staticmethod
+    def get_canonical_amounts(booking, recalculated_total=None):
+        """
+        Resolve total/per-person amounts in a backward-compatible way.
+
+        Priority:
+        1) total_amount_paid (new source of truth)
+        2) total_price interpreted as aggregate total
+        3) legacy fallback: total_price interpreted as per-person (x chargeable travelers)
+        """
+        chargeable_count = booking.get_chargeable_travelers_count()
+        quant = Decimal("0.01")
+
+        if booking.total_amount_paid is not None:
+            total_amount = booking.total_amount_paid.quantize(quant)
+        else:
+            aggregate_candidate = booking.total_price.quantize(quant)
+            legacy_candidate = (
+                booking.total_price * Decimal(str(max(chargeable_count, 1)))
+            ).quantize(quant)
+
+            if recalculated_total is not None:
+                recalculated_total = Decimal(str(recalculated_total)).quantize(quant)
+                aggregate_diff = abs(aggregate_candidate - recalculated_total)
+                legacy_diff = abs(legacy_candidate - recalculated_total)
+                total_amount = (
+                    aggregate_candidate
+                    if aggregate_diff <= legacy_diff
+                    else legacy_candidate
+                )
+            else:
+                total_amount = aggregate_candidate
+
+        if chargeable_count > 0:
+            per_person_amount = (
+                total_amount / Decimal(str(chargeable_count))
+            ).quantize(quant)
+        else:
+            per_person_amount = total_amount
+
+        return {
+            "total_amount": total_amount,
+            "per_person_amount": per_person_amount,
+            "chargeable_travelers": chargeable_count,
+        }
+
+    @staticmethod
     def transition_status(booking, new_status):
         """
         Handles state transitions for bookings with notifications.
@@ -106,27 +152,31 @@ class BookingService:
             if not booking_end_date:
                 booking_end_date = booking_date + timedelta(days=1)
 
-            # Calculate price on backend only (per-person price)
+            # Calculate total price on backend only (aggregate for all chargeable travelers)
             # PHASE 1: Pass date range and room count
             calculated_price = PricingService.calculate_total(
                 package,
                 experiences,
                 hotel_tier,
                 transport_option,
+                travelers=traveler_details if traveler_details else None,
                 start_date=booking_date,
                 end_date=booking_end_date,
                 num_rooms=num_rooms,
+                num_travelers=num_travelers,
             )
 
-            # Calculate total amount to be paid (per-person × chargeable travelers)
+            # calculated_price is the TOTAL for all chargeable travelers.
+            # Set total_amount_paid to the same aggregate total.
+            total_amount_paid = calculated_price
+
+            age_threshold = PricingService.get_chargeable_age_threshold()
             if traveler_details:
                 chargeable_count = sum(
-                    1 for t in traveler_details if t.get("age", 0) >= 5
+                    1 for t in traveler_details if t.get("age", 0) >= age_threshold
                 )
             else:
                 chargeable_count = num_travelers
-
-            total_amount_paid = calculated_price * chargeable_count
 
             # PHASE 1: Calculate hotel costs separately for breakdown
             hotel_cost_info = PricingService.calculate_hotel_cost(
@@ -135,8 +185,9 @@ class BookingService:
 
             logger.info(
                 f"BOOKING CREATION AUDIT: user={user.id}, package={package.slug}, "
-                f"per_person_price={calculated_price}, num_travelers={num_travelers}, "
+                f"total_price={calculated_price}, num_travelers={num_travelers}, "
                 f"chargeable_travelers={chargeable_count}, total_amount_paid={total_amount_paid}, "
+                f"chargeable_age_threshold={age_threshold}, "
                 f"dates={booking_date} to {booking_end_date}, num_rooms={num_rooms}, "
                 f"hotel_cost={hotel_cost_info.get('total_cost')}, "
                 f"traveler_ages={[t.get('age') for t in (traveler_details or [])]}, "
@@ -150,7 +201,7 @@ class BookingService:
                     package=package,
                     selected_hotel_tier=hotel_tier,
                     selected_transport=transport_option,
-                    total_price=calculated_price,  # Per-person price
+                    total_price=calculated_price,  # Aggregate total price
                     total_amount_paid=total_amount_paid,  # Total amount to be charged
                     status="DRAFT",
                     # PHASE 1: New date fields
@@ -211,6 +262,10 @@ class BookingService:
                 booking.selected_hotel_tier,
                 booking.selected_transport,
                 booking.traveler_details if booking.traveler_details else None,
+                start_date=booking.booking_start_date or booking.booking_date,
+                end_date=booking.booking_end_date,
+                num_rooms=booking.num_rooms_required,
+                num_travelers=booking.num_travelers,
             )
 
             # Validate traveler count matches traveler details
@@ -233,26 +288,25 @@ class BookingService:
                         f"calculated vs {chargeable_count} from booking"
                     )
 
-            # Get per-person price from recalculation
-            recalculated_per_person = recalculated_breakdown["final_total"]
+            recalculated_total = recalculated_breakdown["final_total"]
+            canonical_amounts = BookingService.get_canonical_amounts(
+                booking, recalculated_total=recalculated_total
+            )
+            stored_total = canonical_amounts["total_amount"]
 
-            # Validate per-person price (strict - no tolerance for per-person)
-            if booking.total_price != recalculated_per_person:
-                difference = abs(booking.total_price - recalculated_per_person)
-                tolerance = recalculated_per_person * Decimal(
-                    str(tolerance_percent / 100)
+            difference = abs(stored_total - recalculated_total)
+            tolerance = recalculated_total * Decimal(str(tolerance_percent / 100))
+
+            if difference > tolerance:
+                logger.warning(
+                    f"Booking {booking.id} total price mismatch: "
+                    f"stored=${stored_total}, recalculated=${recalculated_total}, "
+                    f"diff=${difference} (tolerance=${tolerance})"
                 )
-
-                if difference > tolerance:
-                    logger.warning(
-                        f"Booking {booking.id} per-person price mismatch: "
-                        f"stored=${booking.total_price}, recalculated=${recalculated_per_person}, "
-                        f"diff=${difference} (tolerance=${tolerance})"
-                    )
-                    return False, (
-                        f"Price mismatch: stored ${booking.total_price} vs "
-                        f"recalculated ${recalculated_per_person}"
-                    )
+                return False, (
+                    f"Price mismatch: stored ${stored_total} vs "
+                    f"recalculated ${recalculated_total}"
+                )
 
             logger.info(f"Booking {booking.id} price validation passed")
             return True, None
@@ -260,3 +314,121 @@ class BookingService:
         except Exception as e:
             logger.error(f"Price validation error for booking {booking.id}: {str(e)}")
             return False, f"Validation error: {str(e)}"
+
+    @staticmethod
+    def detect_price_change(
+        package,
+        experiences,
+        hotel_tier,
+        transport_option,
+        previous_price,
+        start_date=None,
+        end_date=None,
+        num_rooms=1,
+        num_travelers=1,
+    ):
+        """
+        PHASE 3: Detect significant price changes between preview and booking.
+
+        Args:
+            package: Package instance
+            experiences: QuerySet of Experience instances
+            hotel_tier: HotelTier instance
+            transport_option: TransportOption instance
+            previous_price: Previously calculated price (from preview)
+            start_date: Booking start date
+            end_date: Booking end date
+            num_rooms: Number of rooms
+            num_travelers: Number of travelers
+
+        Returns:
+            dict: {
+                'changed': bool,
+                'old_price': Decimal,
+                'new_price': Decimal,
+                'change_percent': Decimal,
+                'exceeds_threshold': bool,
+                'message': str
+            }
+        """
+        from pricing_engine.models import PricingConfiguration
+
+        try:
+            # Get configuration
+            config = PricingConfiguration.get_config()
+
+            # Recalculate current price
+            breakdown = PricingService.get_price_breakdown(
+                package,
+                experiences,
+                hotel_tier,
+                transport_option,
+                start_date=start_date,
+                end_date=end_date,
+                num_rooms=num_rooms,
+                num_travelers=num_travelers,
+            )
+
+            current_price = breakdown["final_total"]
+            previous_price = Decimal(str(previous_price))
+
+            # Calculate change
+            if previous_price == 0:
+                change_percent = Decimal("0")
+            else:
+                change_percent = abs(
+                    (current_price - previous_price) / previous_price * 100
+                )
+
+            exceeds_threshold = change_percent > config.price_change_alert_threshold
+
+            result = {
+                "changed": current_price != previous_price,
+                "old_price": previous_price,
+                "new_price": current_price,
+                "change_percent": change_percent,
+                "exceeds_threshold": exceeds_threshold,
+                "message": "",
+            }
+
+            if result["changed"]:
+                direction = (
+                    "increased" if current_price > previous_price else "decreased"
+                )
+                result["message"] = (
+                    f"Price {direction} from ₹{previous_price} to ₹{current_price} "
+                    f"({change_percent:.2f}% change)"
+                )
+
+                # Log significant changes
+                if exceeds_threshold:
+                    logger.warning(
+                        f"SIGNIFICANT PRICE CHANGE DETECTED: Package {package.slug}, "
+                        f"Old: ₹{previous_price}, New: ₹{current_price}, "
+                        f"Change: {change_percent:.2f}% (Threshold: {config.price_change_alert_threshold}%)"
+                    )
+
+                    # Send admin alert if enabled
+                    if config.enable_price_change_alerts:
+                        try:
+                            NotificationService.notify_admin_price_change(
+                                package=package,
+                                old_price=previous_price,
+                                new_price=current_price,
+                                change_percent=change_percent,
+                            )
+                        except Exception as e:
+                            logger.error(f"Failed to send price change alert: {str(e)}")
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Price change detection failed: {str(e)}")
+            return {
+                "changed": False,
+                "old_price": previous_price,
+                "new_price": previous_price,
+                "change_percent": Decimal("0"),
+                "exceeds_threshold": False,
+                "message": f"Error: {str(e)}",
+            }

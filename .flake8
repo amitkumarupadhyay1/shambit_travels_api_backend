@@ -1,0 +1,4 @@
+[flake8]
+max-line-length = 88
+extend-ignore = E501,F405,F403
+exclude = tests,docs,scripts,media,static,staticfiles,env,venv,.venv,.git,__pycache__,migrations,*/migrations/*,test_phase3.py

@@ -3,7 +3,6 @@ Custom storage backends for Railway deployment
 """
 
 import os
-import tempfile
 
 from django.core.files.storage import FileSystemStorage
 

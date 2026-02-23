@@ -4,12 +4,10 @@ Simple test to verify Swagger implementation is working.
 """
 
 import os
-import sys
 
 import django
 from django.conf import settings
 from django.test import Client
-from django.urls import reverse
 
 # Setup Django
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "backend.settings.development")

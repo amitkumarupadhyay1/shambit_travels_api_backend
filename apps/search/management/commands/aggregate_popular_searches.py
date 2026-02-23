@@ -6,7 +6,7 @@ Run this periodically (e.g., daily via cron) to update PopularSearch table
 from datetime import timedelta
 
 from django.core.management.base import BaseCommand
-from django.db.models import Avg, Count, Sum
+from django.db.models import Avg, Count
 from django.utils import timezone
 
 from search.models import PopularSearch, SearchClick, SearchQuery

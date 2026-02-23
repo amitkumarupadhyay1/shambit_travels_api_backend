@@ -3,7 +3,6 @@ from typing import Optional
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from django.contrib.contenttypes.models import ContentType
-from django.core.files.uploadedfile import InMemoryUploadedFile, TemporaryUploadedFile
 
 from PIL import Image
 from rest_framework import serializers
@@ -108,7 +107,7 @@ class MediaSerializer(serializers.ModelSerializer):
                             return "video"
                         elif content_type and "pdf" in content_type:
                             return "document"
-                except:
+                except:  # noqa: E722
                     pass
 
                 # Fallback: assume Cloudinary media/library paths are images

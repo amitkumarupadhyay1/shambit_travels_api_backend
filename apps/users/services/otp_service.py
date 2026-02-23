@@ -79,7 +79,7 @@ class OTPService:
             response.raise_for_status()
             data = response.json()
 
-            if data.get("return") == True:
+            if data.get("return") == True:  # noqa: E712
                 logger.info(f"OTP sent successfully to {phone}")
                 return True
             else:
@@ -148,7 +148,7 @@ class OTPService:
             response.raise_for_status()
             data = response.json()
 
-            if data.get("return") == True:
+            if data.get("return") == True:  # noqa: E712
                 logger.info(
                     f"Booking confirmation SMS sent to {phone} for booking {booking.id}"
                 )

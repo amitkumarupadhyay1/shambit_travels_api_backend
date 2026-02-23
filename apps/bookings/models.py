@@ -217,14 +217,19 @@ class Booking(models.Model):
 
     def get_chargeable_travelers_count(self):
         """
-        Calculate number of chargeable travelers (age >= 5).
+        Calculate number of chargeable travelers using pricing configuration.
         Used for age-based pricing validation.
         """
+        from pricing_engine.services.pricing_service import PricingService
+
         if not self.traveler_details:
             return self.num_travelers
 
+        age_threshold = PricingService.get_chargeable_age_threshold()
         return sum(
-            1 for traveler in self.traveler_details if traveler.get("age", 0) >= 5
+            1
+            for traveler in self.traveler_details
+            if traveler.get("age", 0) >= age_threshold
         )
 
     def is_editable(self):

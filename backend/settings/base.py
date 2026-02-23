@@ -3,7 +3,6 @@ import sys
 from datetime import timedelta
 from pathlib import Path
 
-import dj_database_url
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -51,6 +50,7 @@ INSTALLED_APPS = [
     "notifications",
     "seo",
     "search",  # Universal search app
+    "apps.travelers",  # Traveler management
 ]
 
 MIDDLEWARE = [

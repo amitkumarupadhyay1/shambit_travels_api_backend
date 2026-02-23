@@ -1,7 +1,5 @@
 from typing import Any, Dict, List
 
-from django.utils import timezone
-
 from .models import SEOData
 
 

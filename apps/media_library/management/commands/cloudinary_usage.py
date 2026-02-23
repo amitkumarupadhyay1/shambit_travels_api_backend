@@ -4,7 +4,6 @@ Usage: python manage.py cloudinary_usage
 """
 
 from django.core.management.base import BaseCommand
-from django.utils import timezone
 
 from media_library.services.cloudinary_monitor import CloudinaryMonitor
 

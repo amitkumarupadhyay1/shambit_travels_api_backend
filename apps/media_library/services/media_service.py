@@ -7,7 +7,7 @@ from urllib.parse import unquote, urlparse
 
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
-from django.db.models import Count, Q, Sum
+from django.db.models import Count, Q
 from django.utils import timezone
 
 from ..models import Media
@@ -223,7 +223,7 @@ class MediaService:
                 # Try to access the content object
                 if not media.content_object:
                     orphaned_media.append(media)
-            except:
+            except:  # noqa: E722
                 orphaned_media.append(media)
 
         # Delete orphaned media
@@ -290,7 +290,7 @@ class MediaService:
                 disk_usage_percentage = (
                     (disk_used / disk_total * 100) if disk_total > 0 else 0
                 )
-        except (OSError, AttributeError, PermissionError) as e:
+        except (OSError, AttributeError, PermissionError):
             # Fallback: just report that disk usage info is not available
             pass
 
@@ -519,7 +519,7 @@ class MediaService:
             None,
         )
         if version_index is not None and version_index + 1 < len(parts):
-            parts = parts[version_index + 1 :]
+            parts = parts[version_index + 1 :]  # noqa: E203
         else:
             while parts and "," in parts[0]:
                 parts = parts[1:]

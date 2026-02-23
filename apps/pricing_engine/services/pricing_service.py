@@ -123,6 +123,7 @@ class PricingService:
         start_date=None,
         end_date=None,
         num_rooms=1,
+        num_travelers=1,
     ):
         """
         Calculates total price based on selected components and active rules.
@@ -153,6 +154,7 @@ class PricingService:
             start_date,
             end_date,
             num_rooms,
+            num_travelers=num_travelers,
         )
 
         return breakdown["final_total"]
@@ -167,45 +169,79 @@ class PricingService:
         start_date=None,
         end_date=None,
         num_rooms=1,
+        num_travelers=1,  # PHASE 2: Simple traveler count for experience pricing
     ):
         """
         Get detailed price breakdown for transparency.
 
         PHASE 1 UPDATE: Now includes date-based hotel pricing.
+        PHASE 2 UPDATE: Now includes num_travelers for experience pricing.
 
         Args:
             package: Package instance
             experiences: QuerySet or list of Experience instances
             hotel_tier: HotelTier instance
             transport_option: TransportOption instance
-            travelers: Optional list of traveler dicts with 'age' field
+            travelers: Optional list of traveler dicts with 'age' field (for age-based pricing)
             start_date: Optional datetime.date for hotel pricing
             end_date: Optional datetime.date for hotel pricing
             num_rooms: Number of rooms required (default: 1)
+            num_travelers: Number of travelers for experience pricing (default: 1)
 
         Returns:
             dict: Detailed price breakdown including age-based calculations and hotel costs
         """
-        # 1. Base experiences price
-        base_experience_total = (
+        # 1. Base experiences price (PHASE 3: Use chargeable travelers for age-based pricing)
+        base_experience_per_person = (
             sum(Decimal(str(exp.base_price)) for exp in experiences)
             if experiences
             else Decimal("0.00")
         )
 
-        # 2. Transport cost
-        transport_cost = transport_option.base_price
+        # PHASE 3: Calculate chargeable travelers first for accurate pricing
+        age_threshold = PricingService.get_chargeable_age_threshold()
+        chargeable_travelers = num_travelers  # Default to all travelers
+        total_travelers = num_travelers
+
+        if travelers:
+            total_travelers = len(travelers)
+            chargeable_travelers = sum(
+                1 for t in travelers if t.get("age", 0) >= age_threshold
+            )
+
+        # Use chargeable travelers for experience cost calculation
+        base_experience_total = base_experience_per_person * Decimal(
+            str(chargeable_travelers)
+        )
+
+        # 2. Transport cost (optional - may be selected later)
+        transport_cost = (
+            transport_option.base_price if transport_option else Decimal("0.00")
+        )
 
         # 3. Hotel cost calculation (PHASE 1: New logic)
         hotel_cost_info = None
-        if start_date and end_date and hotel_tier.base_price_per_night:
-            # Use new date-based pricing
-            hotel_cost_info = PricingService.calculate_hotel_cost(
-                hotel_tier, start_date, end_date, num_rooms
-            )
-            hotel_cost = hotel_cost_info["total_cost"] or Decimal("0.00")
+        if hotel_tier.base_price_per_night:
+            # Use new date-based pricing if base_price_per_night is set
+            if start_date and end_date:
+                # Use provided dates
+                hotel_cost_info = PricingService.calculate_hotel_cost(
+                    hotel_tier, start_date, end_date, num_rooms
+                )
+                hotel_cost = hotel_cost_info["total_cost"] or Decimal("0.00")
+            else:
+                # Fallback: Use 1 night with base price (better than multiplier)
+                hotel_cost = hotel_tier.base_price_per_night * num_rooms
+                hotel_cost_info = {
+                    "uses_new_pricing": True,
+                    "total_cost": hotel_cost,
+                    "cost_per_night": hotel_tier.base_price_per_night,
+                    "num_nights": 1,
+                    "num_rooms": num_rooms,
+                    "breakdown": [],
+                }
         else:
-            # Legacy: Use multiplier-based pricing
+            # Legacy: Use multiplier-based pricing only if base_price_per_night not set
             hotel_cost = Decimal("0.00")
             hotel_cost_info = {
                 "uses_new_pricing": False,
@@ -220,9 +256,9 @@ class PricingService:
         if hotel_cost_info["uses_new_pricing"]:
             # New model: Add hotel cost directly
             subtotal_before_rules = base_experience_total + transport_cost + hotel_cost
-            # For backward compatibility, still calculate what the old model would have been
+            # For display: subtotal includes all components before taxes
             subtotal_before_hotel = base_experience_total + transport_cost
-            subtotal_after_hotel = subtotal_before_hotel * hotel_tier.price_multiplier
+            subtotal_after_hotel = base_experience_total + transport_cost + hotel_cost
         else:
             # Legacy model: Apply multiplier
             subtotal_before_hotel = base_experience_total + transport_cost
@@ -270,38 +306,22 @@ class PricingService:
         # Ensure minimum price (never negative)
         final_total = max(current_total, Decimal("0.00")).quantize(Decimal("0.01"))
 
-        # Calculate age-based pricing if travelers provided
-        chargeable_travelers = None
-        total_travelers = None
-        total_amount = final_total  # Default to per-person price
-
-        # Get configurable age threshold
-        age_threshold = PricingService.get_chargeable_age_threshold()
-
-        if travelers:
-            total_travelers = len(travelers)
-            chargeable_travelers = sum(
-                1 for t in travelers if t.get("age", 0) >= age_threshold
-            )
-            # Multiply per-person price by chargeable travelers
-            total_amount = (final_total * chargeable_travelers).quantize(
-                Decimal("0.01")
-            )
+        # Age-based pricing already applied in base calculation
+        # final_total is the total for all chargeable travelers
+        total_amount = final_total
+        if chargeable_travelers > 0:
+            per_person_price = (
+                total_amount / Decimal(str(chargeable_travelers))
+            ).quantize(Decimal("0.01"))
+        else:
+            per_person_price = total_amount
 
         return {
             "base_experience_total": base_experience_total.quantize(Decimal("0.01")),
             "transport_cost": transport_cost.quantize(Decimal("0.01")),
-            "subtotal_before_hotel": (
-                subtotal_before_hotel.quantize(Decimal("0.01"))
-                if not hotel_cost_info["uses_new_pricing"]
-                else base_experience_total.quantize(Decimal("0.01"))
-            ),
+            "subtotal_before_hotel": subtotal_before_hotel.quantize(Decimal("0.01")),
             "hotel_multiplier": hotel_tier.price_multiplier,
-            "subtotal_after_hotel": (
-                subtotal_after_hotel.quantize(Decimal("0.01"))
-                if not hotel_cost_info["uses_new_pricing"]
-                else (base_experience_total + transport_cost).quantize(Decimal("0.01"))
-            ),
+            "subtotal_after_hotel": subtotal_after_hotel.quantize(Decimal("0.01")),
             # PHASE 1: New hotel cost fields
             "hotel_cost": (
                 hotel_cost.quantize(Decimal("0.01"))
@@ -318,14 +338,21 @@ class PricingService:
             "hotel_breakdown": hotel_cost_info["breakdown"],
             "uses_new_hotel_pricing": hotel_cost_info["uses_new_pricing"],
             # End PHASE 1 additions
+            # PHASE 2: Traveler count
+            "num_travelers": total_travelers if travelers else num_travelers,
+            "base_experience_per_person": base_experience_per_person.quantize(
+                Decimal("0.01")
+            ),
+            # End PHASE 2 additions
             "total_markup": total_markup.quantize(Decimal("0.01")),
             "total_discount": total_discount.quantize(Decimal("0.01")),
-            "final_total": final_total,  # Per-person price
+            "final_total": final_total,  # Total price for all chargeable travelers
             "applied_rules": applied_rules,
             # Age-based pricing fields
             "chargeable_travelers": chargeable_travelers,
-            "total_travelers": total_travelers,
-            "total_amount": total_amount,  # Total price (per-person * chargeable)
+            "total_travelers": total_travelers if travelers else num_travelers,
+            "total_amount": total_amount,  # Same as final_total (already includes chargeable travelers)
+            "per_person_price": per_person_price,
             "chargeable_age_threshold": age_threshold,
         }
 
@@ -396,7 +423,12 @@ class PricingService:
         try:
             # Get cheapest combination
             cheapest_experiences = package.experiences.order_by("base_price")[:1]
-            cheapest_hotel = package.hotel_tiers.order_by("price_multiplier").first()
+            cheapest_hotel = (
+                package.hotel_tiers.filter(base_price_per_night__isnull=False)
+                .order_by("base_price_per_night")
+                .first()
+                or package.hotel_tiers.order_by("price_multiplier").first()
+            )
             cheapest_transport = package.transport_options.order_by(
                 "base_price"
             ).first()
@@ -409,9 +441,12 @@ class PricingService:
             most_expensive_experiences = package.experiences.order_by("-base_price")[
                 :3
             ]  # Assume max 3 experiences
-            most_expensive_hotel = package.hotel_tiers.order_by(
-                "-price_multiplier"
-            ).first()
+            most_expensive_hotel = (
+                package.hotel_tiers.filter(base_price_per_night__isnull=False)
+                .order_by("-base_price_per_night")
+                .first()
+                or package.hotel_tiers.order_by("-price_multiplier").first()
+            )
             most_expensive_transport = package.transport_options.order_by(
                 "-base_price"
             ).first()

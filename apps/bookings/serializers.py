@@ -12,6 +12,47 @@ from rest_framework import serializers
 from .models import Booking
 
 
+class BookingPriceItemSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    price = serializers.CharField()
+
+
+class BookingAppliedRuleSerializer(serializers.Serializer):
+    name = serializers.CharField()
+    type = serializers.CharField()
+    value = serializers.CharField()
+    is_percentage = serializers.BooleanField()
+    amount_applied = serializers.CharField()
+
+
+class BookingPriceBreakdownSchemaSerializer(serializers.Serializer):
+    base_experience_total = serializers.CharField()
+    base_experience_per_person = serializers.CharField()
+    transport_cost = serializers.CharField()
+    subtotal_before_hotel = serializers.CharField()
+    hotel_multiplier = serializers.CharField()
+    subtotal_after_hotel = serializers.CharField()
+    total_markup = serializers.CharField()
+    total_discount = serializers.CharField()
+    applied_rules = BookingAppliedRuleSerializer(many=True)
+    hotel_cost = serializers.CharField(required=False, allow_null=True)
+    hotel_cost_per_night = serializers.CharField(required=False, allow_null=True)
+    hotel_num_nights = serializers.IntegerField(required=False, allow_null=True)
+    hotel_num_rooms = serializers.IntegerField(required=False, allow_null=True)
+    uses_new_hotel_pricing = serializers.BooleanField(required=False)
+    per_person_price = serializers.CharField()
+    num_travelers = serializers.IntegerField()
+    chargeable_travelers = serializers.IntegerField()
+    total_amount = serializers.CharField()
+    chargeable_age_threshold = serializers.IntegerField()
+    experiences = BookingPriceItemSerializer(many=True)
+    hotel_tier = serializers.DictField()
+    transport = serializers.DictField()
+    currency = serializers.CharField()
+    currency_symbol = serializers.CharField()
+
+
 class BookingSerializer(serializers.ModelSerializer):
     """Read-only serializer for displaying bookings with complete price breakdown"""
 
@@ -67,41 +108,46 @@ class BookingSerializer(serializers.ModelSerializer):
         year = obj.created_at.year
         return f"SB-{year}-{str(obj.id).zfill(6)}"
 
-    @extend_schema_field(serializers.DictField)
+    @extend_schema_field(BookingPriceBreakdownSchemaSerializer)
     def get_price_breakdown(self, obj) -> dict:
         """
         SECURITY: All price calculations done on backend.
         Frontend NEVER calculates - only displays these values.
         Includes age-based pricing calculations.
         """
-        from decimal import Decimal
-
         from pricing_engine.services.pricing_service import PricingService
 
+        from .services.booking_service import BookingService
+
         # Get detailed breakdown from pricing service with traveler details
+        # PHASE 1: Include date range and room count for accurate hotel pricing
         breakdown = PricingService.get_price_breakdown(
             obj.package,
             obj.selected_experiences.all(),
             obj.selected_hotel_tier,
             obj.selected_transport,
             obj.traveler_details if obj.traveler_details else None,
+            start_date=obj.booking_start_date or obj.booking_date,
+            end_date=obj.booking_end_date,
+            num_rooms=obj.num_rooms_required,
+            num_travelers=obj.num_travelers,
         )
 
-        # Per-person price (stored in booking)
-        per_person_price = obj.total_price
-
-        # Calculate total based on chargeable travelers if traveler details exist
-        if obj.traveler_details and breakdown.get("chargeable_travelers") is not None:
-            chargeable_count = breakdown["chargeable_travelers"]
-            total_amount = per_person_price * chargeable_count
-        else:
-            # Fallback to num_travelers if no traveler details
-            total_amount = per_person_price * obj.num_travelers
-            chargeable_count = obj.num_travelers
+        amounts = BookingService.get_canonical_amounts(
+            obj, recalculated_total=breakdown["final_total"]
+        )
+        total_amount = amounts["total_amount"]
+        per_person_price = amounts["per_person_amount"]
+        chargeable_count = amounts["chargeable_travelers"]
 
         return {
             # Individual component prices (backend calculated)
             "base_experience_total": str(breakdown["base_experience_total"]),
+            "base_experience_per_person": str(
+                breakdown.get(
+                    "base_experience_per_person", breakdown["base_experience_total"]
+                )
+            ),
             "transport_cost": str(breakdown["transport_cost"]),
             "subtotal_before_hotel": str(breakdown["subtotal_before_hotel"]),
             "hotel_multiplier": str(breakdown["hotel_multiplier"]),
@@ -109,12 +155,27 @@ class BookingSerializer(serializers.ModelSerializer):
             "total_markup": str(breakdown["total_markup"]),
             "total_discount": str(breakdown["total_discount"]),
             "applied_rules": breakdown["applied_rules"],
+            # PHASE 1: New hotel pricing fields
+            "hotel_cost": (
+                str(breakdown["hotel_cost"]) if breakdown.get("hotel_cost") else None
+            ),
+            "hotel_cost_per_night": (
+                str(breakdown["hotel_cost_per_night"])
+                if breakdown.get("hotel_cost_per_night")
+                else None
+            ),
+            "hotel_num_nights": breakdown.get("hotel_num_nights"),
+            "hotel_num_rooms": breakdown.get("hotel_num_rooms"),
+            "uses_new_hotel_pricing": breakdown.get("uses_new_hotel_pricing", False),
             # Per-person and total (backend calculated)
             "per_person_price": str(per_person_price),
             "num_travelers": obj.num_travelers,
             "chargeable_travelers": chargeable_count,
             "total_amount": str(total_amount),
-            "chargeable_age_threshold": breakdown.get("chargeable_age_threshold", 5),
+            "chargeable_age_threshold": breakdown.get(
+                "chargeable_age_threshold",
+                PricingService.get_chargeable_age_threshold(),
+            ),
             # Individual experience prices
             "experiences": [
                 {
@@ -446,20 +507,10 @@ class BookingPreviewSerializer(serializers.Serializer):
         return value
 
     def validate(self, data):
-        """Validate date range if provided"""
-        start_date = data.get("booking_start_date")
-        end_date = data.get("booking_end_date")
-
-        if start_date and end_date:
-            if end_date <= start_date:
-                raise serializers.ValidationError(
-                    "booking_end_date must be after booking_start_date"
-                )
-
-        return data
+        """Validate all inputs including date range and component IDs"""
         from packages.models import Experience, HotelTier, Package, TransportOption
 
-        # Backward compatibility
+        # Backward compatibility: accept experience_ids alias
         if not data.get("selected_experience_ids") and data.get("experience_ids"):
             data["selected_experience_ids"] = data["experience_ids"]
 
@@ -469,6 +520,8 @@ class BookingPreviewSerializer(serializers.Serializer):
         package_id = data.get("package_id")
         num_travelers = data.get("num_travelers")
         traveler_details = data.get("traveler_details", [])
+        start_date = data.get("booking_start_date")
+        end_date = data.get("booking_end_date")
 
         if not experience_ids:
             raise serializers.ValidationError(
@@ -499,6 +552,13 @@ class BookingPreviewSerializer(serializers.Serializer):
                 f"Number of traveler details ({len(traveler_details)}) "
                 f"must match num_travelers ({num_travelers})"
             )
+
+        # Validate date range if provided
+        if start_date and end_date:
+            if end_date <= start_date:
+                raise serializers.ValidationError(
+                    "booking_end_date must be after booking_start_date"
+                )
 
         return data
 
@@ -596,6 +656,7 @@ class BookingUpdateSerializer(serializers.ModelSerializer):
 
         # Check if price-affecting fields changed
         price_changed = False
+        price_affecting_fields = {"booking_date", "num_travelers", "traveler_details"}
 
         experience_ids = validated_data.pop("selected_experience_ids", None)
         hotel_tier_id = validated_data.pop("hotel_tier_id", None)
@@ -627,16 +688,27 @@ class BookingUpdateSerializer(serializers.ModelSerializer):
             # Update other fields
             for attr, value in validated_data.items():
                 setattr(instance, attr, value)
+                if attr in price_affecting_fields:
+                    price_changed = True
 
             # Recalculate price if selections changed
+            # Pass traveler/date/room context and keep canonical total fields in sync.
             if price_changed:
                 calculated_price = PricingService.calculate_total(
                     instance.package,
                     instance.selected_experiences.all(),
                     instance.selected_hotel_tier,
                     instance.selected_transport,
+                    travelers=(
+                        instance.traveler_details if instance.traveler_details else None
+                    ),
+                    start_date=instance.booking_start_date or instance.booking_date,
+                    end_date=instance.booking_end_date,
+                    num_rooms=instance.num_rooms_required,
+                    num_travelers=instance.num_travelers,
                 )
                 instance.total_price = calculated_price
+                instance.total_amount_paid = calculated_price
 
             instance.save()
 

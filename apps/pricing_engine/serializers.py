@@ -1,4 +1,3 @@
-from packages.serializers import PackageSerializer
 from rest_framework import serializers
 
 from .models import PricingRule

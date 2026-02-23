@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 import os
-import sys
 
 import django
 
@@ -8,10 +7,8 @@ import django
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "backend.settings.local")
 django.setup()
 
-from articles.models import Article
 from cities.models import City, Highlight, TravelTip
 from packages.models import Experience, HotelTier, Package, TransportOption
-from users.models import User
 
 
 def create_sample_data():

@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 import os
-import sys
 
 import django
 
@@ -8,10 +7,8 @@ import django
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "backend.settings.local")
 django.setup()
 
-from decimal import Decimal
 
-from packages.models import Experience, HotelTier, Package, TransportOption
-from pricing_engine.models import PricingRule
+from packages.models import Package
 from pricing_engine.services.pricing_service import PricingService
 
 

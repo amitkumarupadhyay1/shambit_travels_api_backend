@@ -1,5 +1,4 @@
 import json
-import os
 import time
 
 import requests
@@ -151,7 +150,7 @@ def generate_report(results):
                 f"| {r['path']} | {r['method']} | {status_str} | {r['duration']:.2f} |\n"
             )
 
-        f.write(f"\n## Summary\n")
+        f.write("\n## Summary\n")
         f.write(f"- Total Tested: {len(results)}\n")
         f.write(f"- Success: {success_count}\n")
         f.write(f"- Failures/Errors: {fail_count}\n")

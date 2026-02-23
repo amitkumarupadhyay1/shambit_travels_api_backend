@@ -34,8 +34,6 @@ def bulk_seo_generation_example():
     """
     Example of generating SEO for existing content in bulk
     """
-    from articles.models import Article
-    from cities.models import City
     from packages.models import Package
 
     # Find articles missing SEO
@@ -168,7 +166,7 @@ def api_integration_example():
     # Get SEO data for a specific article
     def get_article_seo(article_id):
         response = requests.get(
-            f"/api/seo/data/for_object/",
+            "/api/seo/data/for_object/",
             params={"content_type": "articles.article", "object_id": article_id},
         )
 
@@ -201,8 +199,6 @@ def custom_seo_generation():
     """
     Example of custom SEO generation for different content types
     """
-    from cities.models import City
-    from packages.models import Package
 
     def generate_city_seo(city):
         """Generate SEO specifically for cities"""
@@ -288,7 +284,7 @@ def seo_monitoring_example():
                     print(
                         f"⚠️  {content_type}: {missing_info['missing_seo']} objects missing SEO"
                     )
-            except:
+            except:  # noqa: E722
                 pass
 
 

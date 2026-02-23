@@ -58,9 +58,10 @@ class PricingConfigurationAdmin(admin.ModelAdmin):
     list_display = [
         "id",
         "chargeable_age_threshold",
+        "gst_rate",
+        "platform_fee_rate",
         "default_weekend_multiplier",
-        "min_advance_booking_days",
-        "max_advance_booking_days",
+        "price_lock_duration_minutes",
         "updated_at",
         "updated_by",
     ]
@@ -76,6 +77,32 @@ class PricingConfigurationAdmin(admin.ModelAdmin):
                     "<p><strong>Chargeable Age Threshold:</strong> Travelers below this age travel free. "
                     "Only travelers at or above this age are charged.</p>"
                     "<p><em>Example: If set to 5, children under 5 years old are free.</em></p>"
+                ),
+            },
+        ),
+        (
+            "Tax & Fee Configuration (PHASE 3)",
+            {
+                "fields": ("gst_rate", "platform_fee_rate"),
+                "description": format_html(
+                    "<p><strong>GST Rate:</strong> Goods and Services Tax percentage applied to bookings.</p>"
+                    "<p><strong>Platform Fee:</strong> Platform service fee percentage.</p>"
+                    "<p><em>Example: GST=18% (standard rate in India), Platform Fee=2%</em></p>"
+                ),
+            },
+        ),
+        (
+            "Price Lock & Change Detection (PHASE 3)",
+            {
+                "fields": (
+                    "price_lock_duration_minutes",
+                    "price_change_alert_threshold",
+                    "enable_price_change_alerts",
+                ),
+                "description": format_html(
+                    "<p><strong>Price Lock Duration:</strong> How long prices are locked after calculation (in minutes).</p>"
+                    "<p><strong>Price Change Alert:</strong> Alert admins if price changes by more than this percentage.</p>"
+                    "<p><em>Example: Lock=15 minutes, Alert Threshold=5%</em></p>"
                 ),
             },
         ),

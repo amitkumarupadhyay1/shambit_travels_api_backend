@@ -1,6 +1,5 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
-from django.apps import apps
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Count, Q
 

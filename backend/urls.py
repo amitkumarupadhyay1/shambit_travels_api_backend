@@ -131,6 +131,7 @@ def api_root(request):
                 "media": "/api/media/",
                 "pricing": "/api/pricing/",
                 "search": "/api/search/",
+                "travelers": "/api/travelers/",
             },
         }
     )
@@ -160,6 +161,7 @@ urlpatterns = [
     path("api/media/", include("media_library.urls")),
     path("api/pricing/", include("pricing_engine.urls")),
     path("api/search/", include("search.urls")),  # Universal search endpoint
+    path("api/", include("apps.travelers.urls")),  # Traveler management
     # API Documentation - Secure access based on environment
     path("api/schema/", SecureSpectacularAPIView.as_view(), name="schema"),
     path(

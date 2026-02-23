@@ -29,7 +29,7 @@ def razorpay_webhook(request):
         # Step 1: Verify webhook signature
         razorpay_service = RazorpayService()
         if not razorpay_service.verify_webhook_signature(body, signature):
-            logger.warning(f"Invalid Razorpay signature detected")
+            logger.warning("Invalid Razorpay signature detected")
             return HttpResponse(status=400)
     except Exception as e:
         logger.error(f"Webhook signature verification error: {str(e)}")
