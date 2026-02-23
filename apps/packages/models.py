@@ -197,7 +197,9 @@ class TransportOption(models.Model):
         indexes = [
             models.Index(fields=["base_price"]),  # Price filtering (legacy)
             models.Index(fields=["base_price_per_day"]),  # New price filtering
-            models.Index(fields=["is_active", "base_price_per_day"]),  # Active vehicles by price
+            models.Index(
+                fields=["is_active", "base_price_per_day"]
+            ),  # Active vehicles by price
         ]
         ordering = ["base_price"]
 
@@ -210,8 +212,6 @@ class TransportOption(models.Model):
             return self.base_price_per_day
         # Fallback to legacy base_price
         return self.base_price
-
-
 
 
 class Package(models.Model):

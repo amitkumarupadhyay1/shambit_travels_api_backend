@@ -14,7 +14,9 @@ logger = logging.getLogger(__name__)
 
 class BookingService:
     @staticmethod
-    def _validate_vehicle_allocation(vehicle_allocation, num_travelers, start_date, end_date):
+    def _validate_vehicle_allocation(
+        vehicle_allocation, num_travelers, start_date, end_date
+    ):
         """
         Validate vehicle allocation structure and capacity.
 
@@ -27,8 +29,6 @@ class BookingService:
         Raises:
             ValueError: If validation fails
         """
-        from math import ceil
-
         if not isinstance(vehicle_allocation, list):
             raise ValueError("vehicle_allocation must be a list")
 
@@ -49,7 +49,9 @@ class BookingService:
                 raise ValueError("transport_option_id is required")
 
             if count < 1:
-                raise ValueError(f"count must be at least 1 for transport_option_id {transport_id}")
+                raise ValueError(
+                    f"count must be at least 1 for transport_option_id {transport_id}"
+                )
 
             if transport_id in seen_ids:
                 raise ValueError(f"Duplicate transport_option_id: {transport_id}")
@@ -345,7 +347,9 @@ class BookingService:
                 end_date=booking.booking_end_date,
                 num_rooms=booking.num_rooms_required,
                 num_travelers=booking.num_travelers,
-                vehicle_allocation=booking.vehicle_allocation if booking.vehicle_allocation else None,
+                vehicle_allocation=(
+                    booking.vehicle_allocation if booking.vehicle_allocation else None
+                ),
             )
 
             # Validate traveler count matches traveler details

@@ -6,7 +6,6 @@ Tests mathematical correctness, edge cases, and performance.
 from decimal import Decimal
 
 import pytest
-
 from pricing_engine.services.vehicle_optimization import (
     VehicleCombination,
     VehicleOptimizationEngine,
@@ -142,7 +141,9 @@ class TestVehicleOptimizationEngine:
 
     def test_exact_capacity_match(self, vehicle_types):
         """Test P = exact capacity (e.g., 12 for van)"""
-        engine = VehicleOptimizationEngine(vehicle_types, passenger_count=12, num_days=1)
+        engine = VehicleOptimizationEngine(
+            vehicle_types, passenger_count=12, num_days=1
+        )
         solutions = engine.optimize()
 
         assert len(solutions) > 0
@@ -155,7 +156,9 @@ class TestVehicleOptimizationEngine:
 
     def test_capacity_plus_one(self, vehicle_types):
         """Test P = capacity + 1 (e.g., 13 passengers)"""
-        engine = VehicleOptimizationEngine(vehicle_types, passenger_count=13, num_days=1)
+        engine = VehicleOptimizationEngine(
+            vehicle_types, passenger_count=13, num_days=1
+        )
         solutions = engine.optimize()
 
         assert len(solutions) > 0
@@ -167,7 +170,9 @@ class TestVehicleOptimizationEngine:
 
     def test_large_passenger_count(self, vehicle_types):
         """Test very large P (e.g., 120 passengers)"""
-        engine = VehicleOptimizationEngine(vehicle_types, passenger_count=120, num_days=1)
+        engine = VehicleOptimizationEngine(
+            vehicle_types, passenger_count=120, num_days=1
+        )
         solutions = engine.optimize()
 
         assert len(solutions) > 0
@@ -178,7 +183,9 @@ class TestVehicleOptimizationEngine:
         assert best.unused_seats >= 0
 
         # Should prefer vans (most efficient)
-        van_count = sum(count for vehicle, count in best.vehicles if vehicle.name == "Van")
+        van_count = sum(
+            count for vehicle, count in best.vehicles if vehicle.name == "Van"
+        )
         assert van_count >= 10  # At least 10 vans for 120 passengers
 
     def test_single_vehicle_type_active(self, vehicle_types):
@@ -211,7 +218,9 @@ class TestVehicleOptimizationEngine:
 
     def test_no_under_capacity_solutions(self, vehicle_types):
         """Test that no under-capacity solutions are returned"""
-        engine = VehicleOptimizationEngine(vehicle_types, passenger_count=20, num_days=1)
+        engine = VehicleOptimizationEngine(
+            vehicle_types, passenger_count=20, num_days=1
+        )
         solutions = engine.optimize()
 
         for solution in solutions:
@@ -219,7 +228,9 @@ class TestVehicleOptimizationEngine:
 
     def test_pricing_calculation(self, vehicle_types):
         """Test that pricing is calculated correctly"""
-        engine = VehicleOptimizationEngine(vehicle_types, passenger_count=10, num_days=3)
+        engine = VehicleOptimizationEngine(
+            vehicle_types, passenger_count=10, num_days=3
+        )
         solutions = engine.optimize()
 
         best = solutions[0]
@@ -235,7 +246,9 @@ class TestVehicleOptimizationEngine:
 
     def test_dominance_elimination(self, vehicle_types):
         """Test that dominated solutions are removed"""
-        engine = VehicleOptimizationEngine(vehicle_types, passenger_count=15, num_days=1)
+        engine = VehicleOptimizationEngine(
+            vehicle_types, passenger_count=15, num_days=1
+        )
         solutions = engine.optimize()
 
         # Check no solution dominates another
@@ -292,7 +305,9 @@ class TestVehicleOptimizationEngine:
 
     def test_get_recommended_combination(self, vehicle_types):
         """Test getting single recommended combination"""
-        engine = VehicleOptimizationEngine(vehicle_types, passenger_count=10, num_days=1)
+        engine = VehicleOptimizationEngine(
+            vehicle_types, passenger_count=10, num_days=1
+        )
         recommended = engine.get_recommended_combination()
 
         assert recommended is not None
@@ -311,7 +326,9 @@ class TestCalculateVehiclePrice:
             {"transport_option_id": 2, "count": 1},  # 1 SUV
         ]
 
-        price = calculate_vehicle_price(allocation, num_days=3, vehicle_types_map=vehicle_map)
+        price = calculate_vehicle_price(
+            allocation, num_days=3, vehicle_types_map=vehicle_map
+        )
 
         # Expected: (2 * 1000 + 1 * 1500) * 3 = 3500 * 3 = 10500
         assert price == Decimal("10500")
@@ -331,7 +348,9 @@ class TestCalculateVehiclePrice:
             {"transport_option_id": 999, "count": 1},  # Invalid ID
         ]
 
-        price = calculate_vehicle_price(allocation, num_days=1, vehicle_types_map=vehicle_map)
+        price = calculate_vehicle_price(
+            allocation, num_days=1, vehicle_types_map=vehicle_map
+        )
 
         # Should ignore invalid ID
         assert price == Decimal("0")
@@ -343,6 +362,8 @@ class TestCalculateVehiclePrice:
         allocation = [{"transport_option_id": 1, "count": 1}]
 
         # 1.5 days should be ceiled to 2
-        price = calculate_vehicle_price(allocation, num_days=1.5, vehicle_types_map=vehicle_map)
+        price = calculate_vehicle_price(
+            allocation, num_days=1.5, vehicle_types_map=vehicle_map
+        )
 
         assert price == Decimal("2000")  # 1000 * 2 days

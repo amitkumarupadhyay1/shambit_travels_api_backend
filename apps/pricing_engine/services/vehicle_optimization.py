@@ -102,7 +102,9 @@ class VehicleOptimizationEngine:
     Implements integer linear programming with pruning and dominance elimination.
     """
 
-    def __init__(self, vehicle_types: List[VehicleType], passenger_count: int, num_days: int):
+    def __init__(
+        self, vehicle_types: List[VehicleType], passenger_count: int, num_days: int
+    ):
         """
         Initialize optimization engine.
 
@@ -119,7 +121,8 @@ class VehicleOptimizationEngine:
 
         # Calculate upper bounds for each vehicle type
         self.max_counts = {
-            v.id: ceil(passenger_count / v.passenger_capacity) for v in self.vehicle_types
+            v.id: ceil(passenger_count / v.passenger_capacity)
+            for v in self.vehicle_types
         }
 
     def optimize(self, max_solutions: int = 10) -> List[VehicleCombination]:

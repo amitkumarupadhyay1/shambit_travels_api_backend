@@ -21,5 +21,9 @@ router.register(
 
 urlpatterns = [
     path("", include(router.urls)),
-    path("vehicle-suggestions/", VehicleSuggestionsView.as_view(), name="vehicle-suggestions"),
+    path(
+        "vehicle-suggestions/",
+        VehicleSuggestionsView.as_view(),
+        name="vehicle-suggestions",
+    ),
 ]

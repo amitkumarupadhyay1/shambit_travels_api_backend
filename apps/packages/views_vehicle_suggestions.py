@@ -5,18 +5,16 @@ Provides optimized vehicle combinations based on passenger count and trip durati
 """
 
 import logging
-from decimal import Decimal
 from math import ceil
 
 from drf_spectacular.utils import extend_schema
-from rest_framework import status
-from rest_framework.response import Response
-from rest_framework.views import APIView
-
 from pricing_engine.services.vehicle_optimization import (
     VehicleOptimizationEngine,
     VehicleType,
 )
+from rest_framework import status
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from .models import TransportOption
 
@@ -192,7 +190,9 @@ class VehicleSuggestionsView(APIView):
             return Response(response_data, status=status.HTTP_200_OK)
 
         except Exception as e:
-            logger.error(f"Error generating vehicle suggestions: {str(e)}", exc_info=True)
+            logger.error(
+                f"Error generating vehicle suggestions: {str(e)}", exc_info=True
+            )
             return Response(
                 {"error": "Failed to generate vehicle suggestions"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
