@@ -37,7 +37,15 @@ class ArticleListSerializer(serializers.ModelSerializer):
     def get_featured_image(self, obj) -> Optional[str]:
         if not obj.featured_image:
             return None
-        return self._append_cache_buster(obj.featured_image.url, obj.updated_at)
+
+        # Build absolute URL if request is available
+        request = self.context.get("request")
+        if request:
+            url = request.build_absolute_uri(obj.featured_image.url)
+        else:
+            url = obj.featured_image.url
+
+        return self._append_cache_buster(url, obj.updated_at)
 
     def _append_cache_buster(self, url: str, version_source) -> str:
         if not url or not version_source:
@@ -89,7 +97,15 @@ class ArticleSerializer(serializers.ModelSerializer):
     def get_featured_image(self, obj) -> Optional[str]:
         if not obj.featured_image:
             return None
-        return self._append_cache_buster(obj.featured_image.url, obj.updated_at)
+
+        # Build absolute URL if request is available
+        request = self.context.get("request")
+        if request:
+            url = request.build_absolute_uri(obj.featured_image.url)
+        else:
+            url = obj.featured_image.url
+
+        return self._append_cache_buster(url, obj.updated_at)
 
     def _append_cache_buster(self, url: str, version_source) -> str:
         if not url or not version_source:

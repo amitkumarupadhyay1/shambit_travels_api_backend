@@ -150,6 +150,7 @@ class PackageSerializer(serializers.ModelSerializer):
     hotel_tiers = HotelTierSerializer(many=True, read_only=True)
     transport_options = TransportOptionSerializer(many=True, read_only=True)
     city_name = serializers.CharField(source="city.name", read_only=True)
+    featured_image_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Package
@@ -159,9 +160,47 @@ class PackageSerializer(serializers.ModelSerializer):
             "slug",
             "description",
             "city_name",
+            "featured_image_url",
             "experiences",
             "hotel_tiers",
             "transport_options",
             "is_active",
             "created_at",
         ]
+
+    @extend_schema_field(serializers.CharField(allow_null=True))
+    def get_featured_image_url(self, obj) -> Optional[str]:
+        if obj.featured_image and obj.featured_image.file:
+            request = self.context.get("request")
+            if request:
+                url = request.build_absolute_uri(obj.featured_image.file.url)
+            else:
+                url = obj.featured_image.file.url
+            version_source = getattr(obj.featured_image, "updated_at", None) or getattr(
+                obj, "updated_at", None
+            )
+            return self._append_cache_buster(url, version_source)
+        return None
+
+    def _append_cache_buster(self, url: str, version_source) -> str:
+        if not url or not version_source:
+            return url
+
+        # Skip cache-busting for Cloudinary URLs - they have their own versioning
+        if "cloudinary.com" in url:
+            return url
+
+        timestamp = int(version_source.timestamp())
+        parts = urlsplit(url)
+        query_params = dict(parse_qsl(parts.query))
+        query_params["v"] = str(timestamp)
+
+        return urlunsplit(
+            (
+                parts.scheme,
+                parts.netloc,
+                parts.path,
+                urlencode(query_params),
+                parts.fragment,
+            )
+        )
