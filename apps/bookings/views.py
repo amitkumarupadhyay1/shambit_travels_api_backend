@@ -4,7 +4,12 @@ from decimal import Decimal
 from django.db import transaction
 from django.utils import timezone
 
-from drf_spectacular.utils import OpenApiExample, extend_schema, inline_serializer
+from drf_spectacular.utils import (
+    OpenApiExample,
+    OpenApiParameter,
+    extend_schema,
+    inline_serializer,
+)
 from payments.services.payment_service import RazorpayService
 from pricing_engine.services.pricing_service import PricingService
 from rest_framework import serializers, status, viewsets
@@ -1078,6 +1083,117 @@ class BookingViewSet(viewsets.ModelViewSet):
                 },
             }
         )
+
+    @extend_schema(
+        operation_id="verify_booking_by_reference",
+        summary="Verify booking by reference number",
+        description="Public endpoint to verify booking authenticity. Returns limited information for security. Rate limited to 10 requests per minute per IP.",
+        parameters=[
+            OpenApiParameter(
+                name="reference",
+                type=str,
+                location=OpenApiParameter.PATH,
+                description="Booking reference number (e.g., SB-2024-000123)",
+            )
+        ],
+        responses={
+            200: OpenApiExample(
+                "Booking verified",
+                value={
+                    "booking_reference": "SB-2024-000123",
+                    "status": "CONFIRMED",
+                    "package_name": "Divine Varanasi Experience",
+                    "destination": "Varanasi",
+                    "booking_date": "2024-03-15",
+                    "num_travelers": 4,
+                    "customer_name": "John Doe",
+                    "total_amount": "45000.00",
+                    "created_at": "2024-02-20T10:30:00Z",
+                },
+                response_only=True,
+            ),
+            404: OpenApiExample(
+                "Booking not found",
+                value={"error": "Booking not found"},
+                response_only=True,
+            ),
+            429: OpenApiExample(
+                "Rate limit exceeded",
+                value={
+                    "error": "Too many verification attempts. Please try again later."
+                },
+                response_only=True,
+            ),
+        },
+    )
+    @action(detail=False, methods=["get"], url_path="verify/(?P<reference>[^/.]+)")
+    def verify_booking(self, request, reference=None):
+        """
+        Public endpoint to verify booking by reference number.
+        Returns limited booking information for security.
+        Rate limited to prevent enumeration attacks.
+        """
+        from django.core.cache import cache
+
+        # Rate limiting: 10 requests per minute per IP
+        ip_address = request.META.get("REMOTE_ADDR", "unknown")
+        cache_key = f"booking_verify_rate_limit_{ip_address}"
+        request_count = cache.get(cache_key, 0)
+
+        if request_count >= 10:
+            logger.warning(
+                f"Rate limit exceeded for booking verification from IP {ip_address}"
+            )
+            return Response(
+                {"error": "Too many verification attempts. Please try again later."},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+
+        # Increment rate limit counter
+        cache.set(cache_key, request_count + 1, 60)  # 60 seconds TTL
+
+        try:
+            # Find booking by reference
+            booking = Booking.objects.select_related("package", "package__city").get(
+                booking_reference=reference
+            )
+
+            # Log verification attempt
+            logger.info(
+                f"Booking verification: reference={reference}, "
+                f"booking_id={booking.id}, ip={ip_address}"
+            )
+
+            # Return limited information for security
+            verification_data = {
+                "booking_reference": booking.booking_reference,
+                "status": booking.status,
+                "package_name": booking.package.name,
+                "destination": booking.package.city.name,
+                "booking_date": booking.booking_date.isoformat(),
+                "num_travelers": booking.num_travelers,
+                "customer_name": booking.customer_name,
+                "total_amount": str(booking.total_amount_paid or booking.total_price),
+                "created_at": booking.created_at.isoformat(),
+            }
+
+            return Response(verification_data, status=status.HTTP_200_OK)
+
+        except Booking.DoesNotExist:
+            # Log failed verification attempt
+            logger.warning(
+                f"Booking verification failed: reference={reference}, ip={ip_address}"
+            )
+            return Response(
+                {"error": "Booking not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except Exception as e:
+            logger.error(f"Booking verification error: {str(e)}")
+            return Response(
+                {"error": "Verification failed"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
     @extend_schema(
         operation_id="cancel_booking",
