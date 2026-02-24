@@ -7,11 +7,86 @@ from .models_draft import BookingDraft
 
 @admin.register(Booking)
 class BookingAdmin(admin.ModelAdmin):
-    list_display = ["id", "user", "package", "status", "total_price", "created_at"]
+    list_display = [
+        "id",
+        "booking_reference_display",
+        "user",
+        "package",
+        "status",
+        "total_price",
+        "created_at",
+    ]
     list_filter = ["status", "created_at", "package__city"]
-    search_fields = ["user__email", "user__username", "package__name"]
-    readonly_fields = ["created_at", "updated_at"]
+    search_fields = [
+        "user__email",
+        "user__username",
+        "package__name",
+        "id",  # Allows searching by booking ID (part of reference)
+        "customer_email",  # Search by customer email
+        "customer_name",  # Search by customer name
+        "customer_phone",  # Search by customer phone
+    ]
+    search_help_text = "Search by booking reference (e.g., SB-2026-000041), customer name, email, phone, package name, or traveler name"
+    readonly_fields = ["created_at", "updated_at", "booking_reference_display"]
     list_editable = ["status"]
+
+    def booking_reference_display(self, obj):
+        """Display booking reference in list view"""
+        return obj.booking_reference
+
+    booking_reference_display.short_description = "Booking Reference"
+    booking_reference_display.admin_order_field = "id"
+
+    def get_search_results(self, request, queryset, search_term):
+        """
+        Custom search to handle:
+        1. Booking reference format (SB-YYYY-NNNNNN)
+        2. Traveler names/emails/phones inside JSON field
+        """
+        queryset, use_distinct = super().get_search_results(
+            request, queryset, search_term
+        )
+
+        if not search_term:
+            return queryset, use_distinct
+
+        # Check if search term matches booking reference format
+        if search_term.upper().startswith("SB-"):
+            # Extract ID from booking reference: SB-2026-000041 -> 41
+            parts = search_term.split("-")
+            if len(parts) == 3:
+                try:
+                    booking_id = int(parts[2])  # Remove leading zeros
+                    queryset |= self.model.objects.filter(id=booking_id)
+                except (ValueError, IndexError):
+                    pass  # Invalid format, ignore
+
+        # Search in traveler_details JSON field
+        # This searches for ANY field in the JSON (name, email, phone, etc.)
+        # For PostgreSQL: Search for the term anywhere in the JSON structure
+        # This will match partial names, emails, phones (e.g., "kirti" matches "Kirti Sharma")
+        try:
+            # Cast JSON to text and search (works for both PostgreSQL and SQLite)
+            from django.db.models import TextField
+            from django.db.models.functions import Cast
+
+            # Search in the JSON field by casting to text
+            # This will find matches in ANY field: name, email, phone, gender, etc.
+            queryset |= self.model.objects.annotate(
+                traveler_json_text=Cast("traveler_details", TextField())
+            ).filter(traveler_json_text__icontains=search_term)
+
+        except Exception as e:
+            # Fallback: Simple contains search
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Traveler search fallback used: {e}")
+            queryset |= self.model.objects.filter(
+                traveler_details__icontains=search_term
+            )
+
+        return queryset, use_distinct
 
     fieldsets = (
         ("Booking Info", {"fields": ("user", "package", "status", "total_price")}),
