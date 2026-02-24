@@ -29,10 +29,12 @@ class Experience(models.Model):
         decimal_places=2,
         db_index=True,
         validators=[
-            MinValueValidator(100, message="Base price must be at least ₹100"),
+            MinValueValidator(
+                0, message="Base price must be at least ₹0 (free experiences allowed)"
+            ),
             MaxValueValidator(100000, message="Base price cannot exceed ₹100,000"),
         ],
-        help_text="Price in INR (₹100 - ₹100,000)",
+        help_text="Price in INR (₹0 - ₹100,000). Set to 0 for free experiences.",
     )  # Price filtering
 
     # New Fields - Phase 1 Enhancement

@@ -120,15 +120,14 @@ class ExperienceAdmin(admin.ModelAdmin):
         count = 0
         for exp in queryset:
             new_price = exp.base_price * Decimal("0.90")
-            # Ensure price doesn't go below minimum
-            if new_price >= 100:
+            # Ensure price doesn't go below minimum (₹0)
+            if new_price >= 0:
                 exp.base_price = new_price
                 exp.save()
                 count += 1
         self.message_user(
             request,
-            f"Decreased prices by 10% for {count} experience(s). "
-            f"Skipped experiences that would go below ₹100.",
+            f"Decreased prices by 10% for {count} experience(s).",
             level="success",
         )
 

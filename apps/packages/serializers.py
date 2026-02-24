@@ -71,8 +71,10 @@ class ExperienceSerializer(serializers.ModelSerializer):
 
     def validate_base_price(self, value):
         """Validate base price is within acceptable range"""
-        if value < 100:
-            raise ValidationError("Base price must be at least ₹100")
+        if value < 0:
+            raise ValidationError(
+                "Base price must be at least ₹0 (free experiences allowed)"
+            )
         if value > 100000:
             raise ValidationError("Base price cannot exceed ₹100,000")
         return value
