@@ -2,11 +2,16 @@ from django.urls import include, path
 
 from rest_framework.routers import DefaultRouter
 
-from . import views
+from . import views, views_push
 
 # Create router for viewset
 router = DefaultRouter()
 router.register(r"", views.NotificationViewSet, basename="notification")
+router.register(
+    r"push/subscriptions",
+    views_push.PushSubscriptionViewSet,
+    basename="push-subscription",
+)
 
 urlpatterns = [
     path("", include(router.urls)),
@@ -30,6 +35,13 @@ urlpatterns = [
 # DELETE /api/notifications/clear_old/?days=30 - Delete old notifications
 # GET /api/notifications/recent/ - Get recent notifications (7 days)
 # GET /api/notifications/unread/ - Get only unread notifications
+#
+# Push notification endpoints:
+# GET /api/notifications/push/subscriptions/ - List user's push subscriptions
+# POST /api/notifications/push/subscriptions/ - Subscribe to push notifications
+# DELETE /api/notifications/push/subscriptions/{id}/ - Unsubscribe
+# GET /api/notifications/push/vapid-public-key/ - Get VAPID public key
+# POST /api/notifications/push/test/ - Send test push notification
 #
 # Query parameters for list endpoint:
 # ?is_read=true/false - Filter by read status

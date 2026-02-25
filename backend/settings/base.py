@@ -442,3 +442,36 @@ if os.environ.get("USE_CLOUDINARY") == "True":
             "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
         },
     }
+
+# ============================================================
+# Push Notifications Configuration (Web Push API)
+# ============================================================
+# VAPID keys for Web Push Notifications
+# Generated using: python generate_vapid_keys.py
+# Keep VAPID_PRIVATE_KEY secret - never commit to git
+
+VAPID_PUBLIC_KEY = os.environ.get(
+    "VAPID_PUBLIC_KEY",
+    "-----BEGIN PUBLIC KEY-----\n"
+    "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEvcq8j0G4OF0RZ6omO7KDhcugqviB\n"
+    "omutTRJI8Hs09yke6OTHSB46yKzqxpAylMpEh6CTqUtmfyhglVwNr5VI9g==\n"
+    "-----END PUBLIC KEY-----",
+)
+
+VAPID_PRIVATE_KEY = os.environ.get(
+    "VAPID_PRIVATE_KEY",
+    "-----BEGIN PRIVATE KEY-----\n"
+    "MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgrd0ri3wGz2l2z+rh\n"
+    "tQZQUomDm2wPnVFzICYKLabNTzihRANCAAS9yryPQbg4XRFnqiY7soOFy6Cq+IGi\n"
+    "a61NEkjwezT3KR7o5MdIHjrIrOrGkDKUykSHoJOpS2Z/KGCVXA2vlUj2\n"
+    "-----END PRIVATE KEY-----",
+)
+
+VAPID_CLAIMS = {"sub": os.environ.get("VAPID_ADMIN_EMAIL", "mailto:admin@shambit.com")}
+
+# Push notification settings
+PUSH_NOTIFICATION_SETTINGS = {
+    "MAX_FAILURES_BEFORE_DEACTIVATE": 3,  # Deactivate subscription after 3 failed attempts
+    "NOTIFICATION_TTL": 86400,  # Time to live: 24 hours
+    "NOTIFICATION_URGENCY": "normal",  # Options: very-low, low, normal, high
+}

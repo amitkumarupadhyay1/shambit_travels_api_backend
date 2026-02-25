@@ -18,13 +18,33 @@ class NotificationService:
     """
 
     @staticmethod
-    def create_notification(user: User, title: str, message: str) -> Notification:
-        """Create a notification for user"""
+    def create_notification(
+        user: User, title: str, message: str, send_push: bool = True
+    ) -> Notification:
+        """
+        Create a notification for user
+        Optionally send push notification
+        """
         try:
             notification = Notification.objects.create(
                 user=user, title=title, message=message, is_read=False
             )
             logger.info(f"Notification created for user {user.id}: {title}")
+
+            # Send push notification if enabled
+            if send_push:
+                try:
+                    from .push_service import PushNotificationService
+
+                    PushNotificationService.send_to_user(
+                        user=user,
+                        title=title,
+                        message=message,
+                        url="/dashboard/notifications",
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to send push notification: {str(e)}")
+
             return notification
         except Exception as e:
             logger.error(f"Failed to create notification: {str(e)}")
