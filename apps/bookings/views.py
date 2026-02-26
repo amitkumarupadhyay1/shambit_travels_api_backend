@@ -40,9 +40,9 @@ class BookingViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         """
         Override permissions for specific actions.
-        Preview and recommend_rooms endpoints should be public (like calculate_price).
+        Preview, recommend_rooms, and verify_booking endpoints should be public.
         """
-        if self.action in ["preview", "recommend_rooms"]:
+        if self.action in ["preview", "recommend_rooms", "verify_booking"]:
             from rest_framework.permissions import AllowAny
 
             return [AllowAny()]
@@ -1153,10 +1153,30 @@ class BookingViewSet(viewsets.ModelViewSet):
         cache.set(cache_key, request_count + 1, 60)  # 60 seconds TTL
 
         try:
-            # Find booking by reference
+            # Parse booking reference to extract ID
+            # Format: SB-YYYY-NNNNNN (e.g., SB-2026-000044)
+            try:
+                parts = reference.split("-")
+                if len(parts) != 3 or parts[0] != "SB":
+                    raise ValueError("Invalid reference format")
+                booking_id = int(parts[2])  # Extract the numeric ID
+            except (ValueError, IndexError):
+                logger.warning(
+                    f"Invalid booking reference format: {reference}, ip={ip_address}"
+                )
+                return Response(
+                    {"error": "Invalid booking reference format"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Find booking by ID and verify the reference matches
             booking = Booking.objects.select_related("package", "package__city").get(
-                booking_reference=reference
+                id=booking_id
             )
+
+            # Verify the reference matches (year check)
+            if booking.booking_reference != reference:
+                raise Booking.DoesNotExist()
 
             # Log verification attempt
             logger.info(
