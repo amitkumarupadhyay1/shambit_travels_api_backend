@@ -99,8 +99,8 @@ class PushSubscriptionViewSet(viewsets.ModelViewSet):
             "public_key": "..."
         }
         """
-        keys = PushNotificationService.get_vapid_keys()
-        serializer = VAPIDPublicKeySerializer({"public_key": keys["public_key"]})
+        public_key = PushNotificationService.get_vapid_public_key_for_browser()
+        serializer = VAPIDPublicKeySerializer({"public_key": public_key})
         return Response(serializer.data)
 
     @action(detail=False, methods=["post"])

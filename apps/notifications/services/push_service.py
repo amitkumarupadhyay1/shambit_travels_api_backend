@@ -58,6 +58,36 @@ class PushNotificationService:
         }
 
     @staticmethod
+    def get_vapid_public_key_for_browser() -> str:
+        """
+        Get VAPID public key in base64url format for browser
+        Converts PEM format to raw base64url string
+        """
+        import base64
+
+        from cryptography.hazmat.backends import default_backend
+        from cryptography.hazmat.primitives import serialization
+
+        vapid_keys = PushNotificationService.get_vapid_keys()
+        public_key_pem = vapid_keys["public_key"]
+
+        # Load the PEM key
+        public_key = serialization.load_pem_public_key(
+            public_key_pem.encode(), backend=default_backend()
+        )
+
+        # Export as raw bytes (uncompressed point format for EC keys)
+        public_bytes = public_key.public_bytes(
+            encoding=serialization.Encoding.X962,
+            format=serialization.PublicFormat.UncompressedPoint,
+        )
+
+        # Convert to base64url (URL-safe base64 without padding)
+        base64url = base64.urlsafe_b64encode(public_bytes).decode("utf-8").rstrip("=")
+
+        return base64url
+
+    @staticmethod
     def subscribe_user(
         user: User,
         endpoint: str,
