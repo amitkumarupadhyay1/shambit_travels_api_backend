@@ -1,0 +1,44 @@
+{
+  "verified_at_utc": "2026-02-26T14:21:05Z",
+  "base_url": "https://shambit.up.railway.app",
+  "endpoint_checks": [
+    {
+      "method": "POST",
+      "path": "/api/auth/register/",
+      "status": 201,
+      "notes": "temporary debug user registration worked"
+    },
+    {
+      "method": "GET",
+      "path": "/api/notifications/push/subscriptions/vapid-public-key/",
+      "status": 200,
+      "response_shape": {
+        "public_key": "<base64url-string>"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/notifications/push/subscriptions/",
+      "status": 201,
+      "response_shape": {
+        "id": "number",
+        "endpoint": "string",
+        "p256dh": "string",
+        "auth": "string",
+        "is_active": true,
+        "created_at": "datetime",
+        "updated_at": "datetime"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/notifications/push/subscriptions/test/",
+      "status": 400,
+      "response_body": {
+        "error": "Failed to send test notification",
+        "detail": "No active subscriptions found or all sends failed"
+      }
+    }
+  ],
+  "diagnosis": "subscription creation succeeds but send-test fails server-side, consistent with VAPID private key format incompatibility in pywebpush path"
+}

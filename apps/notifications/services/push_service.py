@@ -3,6 +3,7 @@ Push Notification Service
 Handles sending push notifications via Web Push API
 """
 
+import base64
 import json
 import logging
 from typing import Dict, List, Optional
@@ -25,67 +26,145 @@ class PushNotificationService:
     """
 
     @staticmethod
+    def _normalize_key(raw_key: str) -> str:
+        """
+        Normalize key strings from env/config.
+        Supports both real newlines and escaped "\\n" sequences.
+        """
+        return (raw_key or "").strip().replace("\\n", "\n")
+
+    @staticmethod
+    def _to_base64url(data: bytes) -> str:
+        """Encode bytes as URL-safe base64 without padding."""
+        return base64.urlsafe_b64encode(data).decode("utf-8").rstrip("=")
+
+    @staticmethod
+    def _public_key_to_browser_format(public_key: str) -> str:
+        """
+        Convert configured public key into browser-required base64url format.
+
+        Supports:
+        - PEM public key
+        - Existing base64url uncompressed EC point (starts with 0x04 when decoded)
+        """
+        from cryptography.hazmat.backends import default_backend
+        from cryptography.hazmat.primitives import serialization
+
+        normalized = PushNotificationService._normalize_key(public_key)
+        if not normalized:
+            raise ValueError("VAPID public key is empty")
+
+        if "BEGIN PUBLIC KEY" in normalized:
+            key_obj = serialization.load_pem_public_key(
+                normalized.encode("utf-8"), backend=default_backend()
+            )
+            public_bytes = key_obj.public_bytes(
+                encoding=serialization.Encoding.X962,
+                format=serialization.PublicFormat.UncompressedPoint,
+            )
+            return PushNotificationService._to_base64url(public_bytes)
+
+        # Already in browser format (base64url EC uncompressed point)
+        candidate = normalized.replace("\n", "")
+        try:
+            padding = "=" * ((4 - len(candidate) % 4) % 4)
+            decoded = base64.urlsafe_b64decode(candidate + padding)
+            if len(decoded) == 65 and decoded[0] == 0x04:
+                return candidate.rstrip("=")
+        except Exception:
+            pass
+
+        raise ValueError(
+            "Invalid VAPID_PUBLIC_KEY format. Expected PEM or base64url EC public key."
+        )
+
+    @staticmethod
+    def _private_key_to_webpush_format(private_key: str) -> str:
+        """
+        Convert configured private key into pywebpush/py_vapid input format.
+
+        Supports:
+        - PEM private key (converted to raw 32-byte base64url)
+        - Existing encoded key accepted by py_vapid
+        """
+        from cryptography.hazmat.backends import default_backend
+        from cryptography.hazmat.primitives import serialization
+        from py_vapid import Vapid
+
+        normalized = PushNotificationService._normalize_key(private_key)
+        if not normalized:
+            raise ValueError("VAPID private key is empty")
+
+        if "BEGIN PRIVATE KEY" in normalized:
+            key_obj = serialization.load_pem_private_key(
+                normalized.encode("utf-8"), password=None, backend=default_backend()
+            )
+            raw_private = key_obj.private_numbers().private_value.to_bytes(32, "big")
+            return PushNotificationService._to_base64url(raw_private)
+
+        candidate = normalized.replace("\n", "").strip()
+        # Validate format early to fail with a clear error message.
+        Vapid.from_string(candidate)
+        return candidate
+
+    @staticmethod
     def get_vapid_keys() -> Dict[str, str]:
         """
-        Get VAPID keys from settings
-        Generate them if not present
-        """
-        # Check if keys exist in settings
-        if hasattr(settings, "VAPID_PUBLIC_KEY") and hasattr(
-            settings, "VAPID_PRIVATE_KEY"
-        ):
-            return {
-                "public_key": settings.VAPID_PUBLIC_KEY,
-                "private_key": settings.VAPID_PRIVATE_KEY,
-            }
+        Get normalized VAPID keys for both browser subscription and pywebpush.
 
-        # Generate new keys if not present
+        Returns:
+            {
+                "public_key": "<base64url public key for browser>",
+                "private_key": "<base64url/encoded private key for pywebpush>"
+            }
+        """
+        public_key = getattr(settings, "VAPID_PUBLIC_KEY", "")
+        private_key = getattr(settings, "VAPID_PRIVATE_KEY", "")
+
+        if public_key and private_key:
+            try:
+                return {
+                    "public_key": PushNotificationService._public_key_to_browser_format(
+                        public_key
+                    ),
+                    "private_key": PushNotificationService._private_key_to_webpush_format(
+                        private_key
+                    ),
+                }
+            except Exception as exc:
+                logger.error("Invalid VAPID key configuration: %s", exc)
+                raise ValueError(f"Invalid VAPID key configuration: {exc}") from exc
+
+        # Generate ephemeral keys only when settings are completely missing.
+        from cryptography.hazmat.primitives import serialization
         from py_vapid import Vapid
 
         vapid = Vapid()
         vapid.generate_keys()
-
-        logger.warning(
-            "VAPID keys not found in settings. Generated new keys. "
-            "Add these to your settings.py:\n"
-            f"VAPID_PUBLIC_KEY = '{vapid.public_key.decode()}'\n"
-            f"VAPID_PRIVATE_KEY = '{vapid.private_key.decode()}'"
+        public_bytes = vapid.public_key.public_bytes(
+            encoding=serialization.Encoding.X962,
+            format=serialization.PublicFormat.UncompressedPoint,
         )
+        private_bytes = vapid.private_key.private_numbers().private_value.to_bytes(
+            32, "big"
+        )
+        generated_public_key = PushNotificationService._to_base64url(public_bytes)
+        generated_private_key = PushNotificationService._to_base64url(private_bytes)
+
+        logger.warning("VAPID keys missing in settings. Generated ephemeral keys.")
 
         return {
-            "public_key": vapid.public_key.decode(),
-            "private_key": vapid.private_key.decode(),
+            "public_key": generated_public_key,
+            "private_key": generated_private_key,
         }
 
     @staticmethod
     def get_vapid_public_key_for_browser() -> str:
         """
-        Get VAPID public key in base64url format for browser
-        Converts PEM format to raw base64url string
+        Get VAPID public key in base64url format required by browser PushManager.
         """
-        import base64
-
-        from cryptography.hazmat.backends import default_backend
-        from cryptography.hazmat.primitives import serialization
-
         vapid_keys = PushNotificationService.get_vapid_keys()
-        public_key_pem = vapid_keys["public_key"]
-
-        # Load the PEM key
-        public_key = serialization.load_pem_public_key(
-            public_key_pem.encode(), backend=default_backend()
-        )
-
-        # Export as raw bytes (uncompressed point format for EC keys)
-        public_bytes = public_key.public_bytes(
-            encoding=serialization.Encoding.X962,
-            format=serialization.PublicFormat.UncompressedPoint,
-        )
-
-        # Convert to base64url (URL-safe base64 without padding)
-        base64url = base64.urlsafe_b64encode(public_bytes).decode("utf-8").rstrip("=")
-
-        return base64url
+        return vapid_keys["public_key"]
 
     @staticmethod
     def subscribe_user(
