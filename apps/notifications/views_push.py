@@ -135,10 +135,13 @@ class PushSubscriptionViewSet(viewsets.ModelViewSet):
                 }
             )
         else:
+            errors = result.get("errors", []) if isinstance(result, dict) else []
+            first_error = errors[0] if errors else None
             return Response(
                 {
                     "error": "Failed to send test notification",
-                    "detail": "No active subscriptions found or all sends failed",
+                    "detail": first_error
+                    or "No active subscriptions found or all sends failed",
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )

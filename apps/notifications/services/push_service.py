@@ -6,7 +6,7 @@ Handles sending push notifications via Web Push API
 import base64
 import json
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -135,28 +135,10 @@ class PushNotificationService:
                 logger.error("Invalid VAPID key configuration: %s", exc)
                 raise ValueError(f"Invalid VAPID key configuration: {exc}") from exc
 
-        # Generate ephemeral keys only when settings are completely missing.
-        from cryptography.hazmat.primitives import serialization
-        from py_vapid import Vapid
-
-        vapid = Vapid()
-        vapid.generate_keys()
-        public_bytes = vapid.public_key.public_bytes(
-            encoding=serialization.Encoding.X962,
-            format=serialization.PublicFormat.UncompressedPoint,
+        # Fail fast instead of generating random ephemeral keys that break subscriptions.
+        raise ValueError(
+            "VAPID keys are missing. Set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY."
         )
-        private_bytes = vapid.private_key.private_numbers().private_value.to_bytes(
-            32, "big"
-        )
-        generated_public_key = PushNotificationService._to_base64url(public_bytes)
-        generated_private_key = PushNotificationService._to_base64url(private_bytes)
-
-        logger.warning("VAPID keys missing in settings. Generated ephemeral keys.")
-
-        return {
-            "public_key": generated_public_key,
-            "private_key": generated_private_key,
-        }
 
     @staticmethod
     def get_vapid_public_key_for_browser() -> str:
@@ -250,6 +232,32 @@ class PushNotificationService:
         Returns:
             True if successful, False otherwise
         """
+        success, _ = PushNotificationService.send_push_notification_with_error(
+            subscription=subscription,
+            title=title,
+            message=message,
+            data=data,
+            icon=icon,
+            badge=badge,
+            tag=tag,
+            url=url,
+        )
+        return success
+
+    @staticmethod
+    def send_push_notification_with_error(
+        subscription: PushSubscription,
+        title: str,
+        message: str,
+        data: Optional[Dict] = None,
+        icon: Optional[str] = None,
+        badge: Optional[str] = None,
+        tag: Optional[str] = None,
+        url: Optional[str] = None,
+    ) -> Tuple[bool, Optional[str]]:
+        """
+        Send push notification and return an optional failure reason.
+        """
         try:
             # Get VAPID keys
             vapid_keys = PushNotificationService.get_vapid_keys()
@@ -273,21 +281,36 @@ class PushNotificationService:
             if url:
                 payload["data"]["url"] = url
 
+            vapid_claims = dict(getattr(settings, "VAPID_CLAIMS", {}) or {})
+            if "sub" not in vapid_claims:
+                vapid_claims["sub"] = f"mailto:{settings.DEFAULT_FROM_EMAIL}"
+
             # Send push notification
             webpush(
                 subscription_info=subscription_info,
                 data=json.dumps(payload),
                 vapid_private_key=vapid_keys["private_key"],
-                vapid_claims={"sub": f"mailto:{settings.DEFAULT_FROM_EMAIL}"},
+                vapid_claims=vapid_claims,
             )
 
             # Mark as successful
             subscription.mark_success()
             logger.info(f"Push notification sent to user {subscription.user.id}")
-            return True
+            return True, None
 
         except WebPushException as e:
-            logger.error(f"WebPush error for user {subscription.user.id}: {str(e)}")
+            response_text = ""
+            status_code = None
+            if e.response is not None:
+                status_code = e.response.status_code
+                response_text = (e.response.text or "")[:300]
+            logger.error(
+                "WebPush error for user %s: %s (status=%s, response=%s)",
+                subscription.user.id,
+                str(e),
+                status_code,
+                response_text,
+            )
 
             # Mark as failed
             subscription.mark_failed()
@@ -300,12 +323,12 @@ class PushNotificationService:
                     f"Deactivated invalid subscription for user {subscription.user.id}"
                 )
 
-            return False
+            return False, str(e)
 
         except Exception as e:
             logger.error(f"Unexpected error sending push notification: {str(e)}")
             subscription.mark_failed()
-            return False
+            return False, str(e)
 
     @staticmethod
     def send_to_user(
@@ -315,7 +338,7 @@ class PushNotificationService:
         data: Optional[Dict] = None,
         icon: Optional[str] = None,
         url: Optional[str] = None,
-    ) -> Dict[str, int]:
+    ) -> Dict[str, object]:
         """
         Send push notification to all active subscriptions of a user
 
@@ -328,30 +351,44 @@ class PushNotificationService:
 
         if not subscriptions:
             logger.info(f"No active push subscriptions for user {user.id}")
-            return {"success": 0, "failed": 0}
+            return {
+                "success": 0,
+                "failed": 0,
+                "errors": ["No active subscriptions found for user"],
+            }
 
         success_count = 0
         failed_count = 0
+        failure_reasons: List[str] = []
 
         for subscription in subscriptions:
-            if PushNotificationService.send_push_notification(
-                subscription=subscription,
-                title=title,
-                message=message,
-                data=data,
-                icon=icon,
-                url=url,
-            ):
+            sent, error_reason = (
+                PushNotificationService.send_push_notification_with_error(
+                    subscription=subscription,
+                    title=title,
+                    message=message,
+                    data=data,
+                    icon=icon,
+                    url=url,
+                )
+            )
+            if sent:
                 success_count += 1
             else:
                 failed_count += 1
+                if error_reason:
+                    failure_reasons.append(error_reason)
 
         logger.info(
             f"Push notifications sent to user {user.id}: "
             f"{success_count} success, {failed_count} failed"
         )
 
-        return {"success": success_count, "failed": failed_count}
+        return {
+            "success": success_count,
+            "failed": failed_count,
+            "errors": failure_reasons,
+        }
 
     @staticmethod
     def send_to_multiple_users(
