@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     "seo",
     "search",  # Universal search app
     "apps.travelers",  # Traveler management
+    "inquiries",  # Customer inquiries/contact form
 ]
 
 MIDDLEWARE = [
@@ -399,6 +400,8 @@ EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
 EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "True") == "True"
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "noreply@travelplatform.com")
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "support@shambit.com")
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://shambittravels.up.railway.app")
 
 # Admin interface settings
 ADMIN_INTERFACE = {

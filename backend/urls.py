@@ -132,6 +132,7 @@ def api_root(request):
                 "pricing": "/api/pricing/",
                 "search": "/api/search/",
                 "travelers": "/api/travelers/",
+                "inquiries": "/api/inquiries/",
             },
         }
     )
@@ -162,6 +163,7 @@ urlpatterns = [
     path("api/pricing/", include("pricing_engine.urls")),
     path("api/search/", include("search.urls")),  # Universal search endpoint
     path("api/", include("apps.travelers.urls")),  # Traveler management
+    path("api/inquiries/", include("inquiries.urls")),  # Customer inquiries
     # API Documentation - Secure access based on environment
     path("api/schema/", SecureSpectacularAPIView.as_view(), name="schema"),
     path(
