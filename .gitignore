@@ -14,6 +14,10 @@ staticfiles/
 .env.local
 .env.development
 .env.production
+.env.railway
+.env.test
+.access_token
+.refresh_token
 
 # Virtual environment
 venv/
