@@ -101,6 +101,21 @@ class HotelTier(models.Model):
     name = models.CharField(max_length=100, db_index=True)
     description = models.TextField()
 
+    # Brand Vision & Trust Elements
+    curation_promise = models.TextField(
+        blank=True,
+        default="",
+        help_text='Why did we pick this tier? E.g., "Handpicked heritage stays for an authentic cultural immersion."',
+    )
+    featured_image = models.ForeignKey(
+        "media_library.Media",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="hotel_tiers",
+        help_text="Visual representation of the experience this tier offers",
+    )
+
     # PHASE 1: New pricing fields
     base_price_per_night = models.DecimalField(
         max_digits=10,

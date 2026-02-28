@@ -110,6 +110,8 @@ class HotelTierSerializer(serializers.ModelSerializer):
     # PHASE 1: Add computed field for effective price
     effective_price_per_night = serializers.SerializerMethodField()
     uses_new_pricing = serializers.SerializerMethodField()
+    # Trust & Vision Fields
+    featured_image_url = serializers.SerializerMethodField()
 
     class Meta:
         model = HotelTier
@@ -117,6 +119,8 @@ class HotelTierSerializer(serializers.ModelSerializer):
             "id",
             "name",
             "description",
+            "curation_promise",
+            "featured_image_url",
             # PHASE 1: New fields
             "base_price_per_night",
             "weekend_multiplier",
@@ -137,6 +141,43 @@ class HotelTierSerializer(serializers.ModelSerializer):
     def get_uses_new_pricing(self, obj):
         """Check if this tier uses the new pricing model"""
         return obj.base_price_per_night is not None
+
+    @extend_schema_field(serializers.CharField(allow_null=True))
+    def get_featured_image_url(self, obj) -> Optional[str]:
+        if obj.featured_image and obj.featured_image.file:
+            request = self.context.get("request")
+            if request:
+                url = request.build_absolute_uri(obj.featured_image.file.url)
+            else:
+                url = obj.featured_image.file.url
+            version_source = getattr(obj.featured_image, "updated_at", None) or getattr(
+                obj, "updated_at", None
+            )
+            return self._append_cache_buster(url, version_source)
+        return None
+
+    def _append_cache_buster(self, url: str, version_source) -> str:
+        if not url or not version_source:
+            return url
+
+        # Skip cache-busting for Cloudinary URLs
+        if "cloudinary.com" in url:
+            return url
+
+        timestamp = int(version_source.timestamp())
+        parts = urlsplit(url)
+        query_params = dict(parse_qsl(parts.query))
+        query_params["v"] = str(timestamp)
+
+        return urlunsplit(
+            (
+                parts.scheme,
+                parts.netloc,
+                parts.path,
+                urlencode(query_params),
+                parts.fragment,
+            )
+        )
 
 
 class TransportOptionSerializer(serializers.ModelSerializer):
